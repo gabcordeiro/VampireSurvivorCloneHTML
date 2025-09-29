@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Game Breaker - Vampire Survivors Clone</title>
+    <title>Game Breaker Pro - Vampire Survivors Clone</title>
     <style>
         * {
             margin: 0;
@@ -207,10 +207,121 @@
             width: 1em;
             margin-left: -1em;
         }
+        
+        .shop-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(20, 20, 50, 0.95);
+            border: 2px solid #6a5acd;
+            border-radius: 10px;
+            padding: 20px;
+            width: 80%;
+            display: none;
+            pointer-events: all;
+            z-index: 10;
+        }
+        
+        .shop-screen h2 {
+            text-align: center;
+            margin-bottom: 15px;
+            color: #9d8aff;
+        }
+        
+        .shop-items {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .shop-item {
+            background: #2a2a5a;
+            border: 1px solid #6a5acd;
+            border-radius: 5px;
+            padding: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .shop-item:hover {
+            background: #3a3a7a;
+            transform: scale(1.05);
+        }
+        
+        .shop-item h3 {
+            color: #9d8aff;
+            margin-bottom: 5px;
+        }
+        
+        .shop-item .cost {
+            color: #ffcc00;
+            font-weight: bold;
+        }
+        
+        .achievements-panel {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            pointer-events: none;
+            max-width: 200px;
+        }
+        
+        .achievement {
+            margin-bottom: 5px;
+            padding: 3px;
+            border-radius: 3px;
+            background: rgba(106, 90, 205, 0.3);
+        }
+        
+        .achievement.unlocked {
+            background: rgba(106, 90, 205, 0.7);
+        }
+        
+        .boss-warning {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ff6b6b;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 0 0 10px #ff0000;
+            display: none;
+            pointer-events: none;
+            z-index: 5;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+        
+        .synergy-notification {
+            position: absolute;
+            top: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(157, 138, 255, 0.8);
+            color: #0c0c2e;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-weight: bold;
+            display: none;
+            pointer-events: none;
+            z-index: 5;
+        }
     </style>
 </head>
 <body>
-    <h1>Game Breaker - Vampire Survivors Clone</h1>
+    <h1>Game Breaker Pro - Vampire Survivors Clone</h1>
     <p>O objetivo é "quebrar" o jogo ficando absurdamente forte!</p>
     
     <div class="game-container">
@@ -222,6 +333,7 @@
                 <div>Vida: <span id="health">100</span>/<span id="maxHealth">100</span></div>
                 <div>XP: <span id="xp">0</span>/<span id="xpToNextLevel">100</span></div>
                 <div>Tempo: <span id="time">0</span>s</div>
+                <div>Wave: <span id="wave">1</span></div>
             </div>
             
             <div class="permanent-upgrades">
@@ -229,6 +341,13 @@
                 <div>Dano: +<span id="permDamage">0</span>%</div>
                 <div>Velocidade: +<span id="permSpeed">0</span>%</div>
                 <div>Vida Máxima: +<span id="permHealth">0</span>%</div>
+                <div>Crítico: <span id="permCrit">0</span>%</div>
+                <div>Roubo de Vida: <span id="permLifeSteal">0</span>%</div>
+            </div>
+            
+            <div class="achievements-panel">
+                <h3>Conquistas</h3>
+                <div id="achievementsList"></div>
             </div>
         </div>
         
@@ -251,8 +370,46 @@
             </div>
         </div>
         
+        <div class="shop-screen" id="shopScreen">
+            <h2>Loja de Upgrades Permanentes</h2>
+            <p>Moedas: <span id="shopCoins">0</span></p>
+            <div class="shop-items">
+                <div class="shop-item" data-type="damage">
+                    <h3>+10% Dano</h3>
+                    <p>Aumenta o dano de todas as armas</p>
+                    <div class="cost">Custo: 10 moedas</div>
+                </div>
+                <div class="shop-item" data-type="speed">
+                    <h3>+5% Velocidade</h3>
+                    <p>Aumenta a velocidade de movimento</p>
+                    <div class="cost">Custo: 10 moedas</div>
+                </div>
+                <div class="shop-item" data-type="health">
+                    <h3>+10 Vida Máxima</h3>
+                    <p>Aumenta a vida máxima</p>
+                    <div class="cost">Custo: 15 moedas</div>
+                </div>
+                <div class="shop-item" data-type="crit">
+                    <h3>+5% Chance Crítica</h3>
+                    <p>Ataques críticos causam o dobro de dano</p>
+                    <div class="cost">Custo: 20 moedas</div>
+                </div>
+                <div class="shop-item" data-type="lifeSteal">
+                    <h3>+5% Roubo de Vida</h3>
+                    <p>Recupera vida ao causar dano</p>
+                    <div class="cost">Custo: 25 moedas</div>
+                </div>
+                <div class="shop-item" data-type="area">
+                    <h3>+10% Área</h3>
+                    <p>Aumenta o alcance das armas</p>
+                    <div class="cost">Custo: 30 moedas</div>
+                </div>
+            </div>
+            <button id="closeShop">Fechar Loja</button>
+        </div>
+        
         <div class="start-screen" id="startScreen">
-            <h1>Game Breaker</h1>
+            <h1>Game Breaker Pro</h1>
             <p>O objetivo é sobreviver o máximo de tempo possível enquanto coleta XP e upgrades para se tornar absurdamente forte!</p>
             
             <div class="instructions">
@@ -263,6 +420,7 @@
                     <li>Colete XP (orbs azuis) para subir de nível</li>
                     <li>Ao subir de nível, escolha upgrades para se tornar mais forte</li>
                     <li>Moedas (orbs douradas) são usadas para upgrades permanentes</li>
+                    <li>Pressione P para abrir a loja de upgrades permanentes</li>
                     <li>Quanto mais tempo sobreviver, mais difícil fica!</li>
                 </ul>
             </div>
@@ -275,8 +433,13 @@
             <p>Você sobreviveu por <span id="survivedTime">0</span> segundos</p>
             <p>Conseguiu <span id="finalLevel">0</span> níveis</p>
             <p>Coletou <span id="finalCoins">0</span> moedas</p>
+            <p>Matou <span id="finalKills">0</span> inimigos</p>
             <button id="restartButton">Jogar Novamente</button>
+            <button id="shopButton">Loja de Upgrades</button>
         </div>
+        
+        <div class="boss-warning" id="bossWarning">CHEFE INCOMING!</div>
+        <div class="synergy-notification" id="synergyNotification">Sinergia Desbloqueada!</div>
     </div>
 
     <script>
@@ -293,14 +456,25 @@
         const permDamageDisplay = document.getElementById('permDamage');
         const permSpeedDisplay = document.getElementById('permSpeed');
         const permHealthDisplay = document.getElementById('permHealth');
+        const permCritDisplay = document.getElementById('permCrit');
+        const permLifeStealDisplay = document.getElementById('permLifeSteal');
         const levelUpScreen = document.getElementById('levelUpScreen');
         const startScreen = document.getElementById('startScreen');
         const gameOverScreen = document.getElementById('gameOverScreen');
+        const shopScreen = document.getElementById('shopScreen');
         const startButton = document.getElementById('startButton');
         const restartButton = document.getElementById('restartButton');
+        const shopButton = document.getElementById('shopButton');
+        const closeShopButton = document.getElementById('closeShop');
         const survivedTimeDisplay = document.getElementById('survivedTime');
         const finalLevelDisplay = document.getElementById('finalLevel');
         const finalCoinsDisplay = document.getElementById('finalCoins');
+        const finalKillsDisplay = document.getElementById('finalKills');
+        const shopCoinsDisplay = document.getElementById('shopCoins');
+        const bossWarning = document.getElementById('bossWarning');
+        const synergyNotification = document.getElementById('synergyNotification');
+        const achievementsList = document.getElementById('achievementsList');
+        const waveDisplay = document.getElementById('wave');
 
         // Variáveis do jogo
         let gameRunning = false;
@@ -315,7 +489,9 @@
             xp: 0,
             xpToNextLevel: 100,
             weapons: [],
-            coins: 0
+            coins: 0,
+            kills: 0,
+            invincible: false
         };
 
         // Upgrades permanentes (persistem entre partidas)
@@ -323,8 +499,47 @@
             damage: 0,
             speed: 0,
             health: 0,
+            crit: 0,
+            lifeSteal: 0,
+            area: 0,
             coins: 0
         };
+
+        // Conquistas
+        let achievements = [
+            { id: 'first_blood', name: 'Primeiro Sangue', description: 'Mate seu primeiro inimigo', unlocked: false, check: () => player.kills >= 1 },
+            { id: 'level_10', name: 'Poder Crescente', description: 'Alcance o nível 10', unlocked: false, check: () => player.level >= 10 },
+            { id: 'level_20', name: 'Força Imparável', description: 'Alcance o nível 20', unlocked: false, check: () => player.level >= 20 },
+            { id: 'coin_collector', name: 'Colecionador de Moedas', description: 'Colete 100 moedas', unlocked: false, check: () => player.coins >= 100 },
+            { id: 'boss_slayer', name: 'Matador de Chefes', description: 'Derrote um chefe', unlocked: false, check: () => player.bossKills >= 1 },
+            { id: 'survivor', name: 'Sobrevivente', description: 'Sobreviva por 5 minutos', unlocked: false, check: () => gameTime >= 300 },
+            { id: 'weapon_master', name: 'Mestre de Armas', description: 'Tenha 5 armas diferentes', unlocked: false, check: () => player.weapons.length >= 5 },
+            { id: 'unstoppable', name: 'Inparável', description: 'Tenha 10 armas ao mesmo tempo', unlocked: false, check: () => player.weapons.length >= 10 }
+        ];
+
+        // Sinergias entre armas
+        let synergies = [
+            {
+                weapons: ['Espada Mágica', 'Bola de Fogo'],
+                result: 'Espada Flamejante',
+                description: 'Combina o poder da espada com chamas ardentes'
+            },
+            {
+                weapons: ['Raio Gélido', 'Orbe da Morte'],
+                result: 'Orbe Congelante',
+                description: 'Um orbe que congela inimigos em área'
+            },
+            {
+                weapons: ['Lâminas Voadoras', 'Espinhos Venenosos'],
+                result: 'Lâminas Tóxicas',
+                description: 'Lâminas que envenenam múltiplos inimigos'
+            },
+            {
+                weapons: ['Espada Flamejante', 'Orbe Congelante'],
+                result: 'Explosão Elemental',
+                description: 'Cria uma explosão que causa dano massivo'
+            }
+        ];
 
         // Arrays de objetos do jogo
         let enemies = [];
@@ -337,25 +552,135 @@
         let enemySpawnRate = 1000; // ms
         let lastWeaponFire = 0;
         let weaponFireRate = 500; // ms
+        let wave = 1;
+        let lastWaveIncrease = 0;
+        let bossActive = false;
+        let bossSpawned = false;
+        let playerBossKills = 0;
 
         // Armas disponíveis
         const weapons = [
-            { name: "Espada Mágica", damage: 10, speed: 1, range: 100, color: "#9d8aff", description: "Ataca inimigos próximos" },
-            { name: "Bola de Fogo", damage: 15, speed: 3, range: 200, color: "#ff6b6b", description: "Projétil de fogo de longo alcance" },
-            { name: "Raio Gélido", damage: 12, speed: 2, range: 150, color: "#6bc5ff", description: "Congela inimigos por um curto período" },
-            { name: "Lâminas Voadoras", damage: 8, speed: 4, range: 120, color: "#ffcc6b", description: "Múltiplos projéteis em diferentes direções" },
-            { name: "Orbe da Morte", damage: 25, speed: 1.5, range: 180, color: "#8b008b", description: "Orbe que persegue inimigos" },
-            { name: "Espinhos Venenosos", damage: 7, speed: 2, range: 130, color: "#32cd32", description: "Envenena inimigos causando dano contínuo" }
+            { 
+                name: "Espada Mágica", 
+                damage: 10, 
+                speed: 1, 
+                range: 100, 
+                color: "#9d8aff", 
+                description: "Ataca inimigos próximos",
+                behavior: "melee",
+                level: 1
+            },
+            { 
+                name: "Bola de Fogo", 
+                damage: 15, 
+                speed: 3, 
+                range: 200, 
+                color: "#ff6b6b", 
+                description: "Projétil de fogo de longo alcance",
+                behavior: "projectile",
+                level: 1
+            },
+            { 
+                name: "Raio Gélido", 
+                damage: 12, 
+                speed: 2, 
+                range: 150, 
+                color: "#6bc5ff", 
+                description: "Congela inimigos por um curto período",
+                behavior: "projectile",
+                level: 1
+            },
+            { 
+                name: "Lâminas Voadoras", 
+                damage: 8, 
+                speed: 4, 
+                range: 120, 
+                color: "#ffcc6b", 
+                description: "Múltiplos projéteis em diferentes direções",
+                behavior: "radial",
+                level: 1
+            },
+            { 
+                name: "Orbe da Morte", 
+                damage: 25, 
+                speed: 1.5, 
+                range: 180, 
+                color: "#8b008b", 
+                description: "Orbe que persegue inimigos",
+                behavior: "homing",
+                level: 1
+            },
+            { 
+                name: "Espinhos Venenosos", 
+                damage: 7, 
+                speed: 2, 
+                range: 130, 
+                color: "#32cd32", 
+                description: "Envenena inimigos causando dano contínuo",
+                behavior: "projectile",
+                level: 1
+            },
+            { 
+                name: "Espada Flamejante", 
+                damage: 20, 
+                speed: 1.2, 
+                range: 120, 
+                color: "#ff4500", 
+                description: "Espada que queima inimigos próximos",
+                behavior: "melee",
+                level: 1
+            },
+            { 
+                name: "Orbe Congelante", 
+                damage: 18, 
+                speed: 1.8, 
+                range: 160, 
+                color: "#00ced1", 
+                description: "Orbe que congela inimigos em área",
+                behavior: "area",
+                level: 1
+            },
+            { 
+                name: "Lâminas Tóxicas", 
+                damage: 12, 
+                speed: 3, 
+                range: 140, 
+                color: "#7cfc00", 
+                description: "Lâminas que envenenam múltiplos inimigos",
+                behavior: "radial",
+                level: 1
+            },
+            { 
+                name: "Explosão Elemental", 
+                damage: 40, 
+                speed: 0.8, 
+                range: 200, 
+                color: "#ff1493", 
+                description: "Explosão que causa dano massivo em área",
+                behavior: "area",
+                level: 1
+            }
         ];
 
         // Inimigos disponíveis
         const enemyTypes = [
-            { name: "Slime", health: 10, speed: 1.5, radius: 12, color: "#32cd32", xp: 5, coins: 1 },
-            { name: "Esqueleto", health: 20, speed: 2, radius: 14, color: "#c0c0c0", xp: 10, coins: 2 },
-            { name: "Fantasma", health: 15, speed: 2.5, radius: 10, color: "#9370db", xp: 8, coins: 3 },
-            { name: "Goblin", health: 25, speed: 1.8, radius: 16, color: "#ff6347", xp: 15, coins: 4 },
-            { name: "Boss", health: 100, speed: 1, radius: 25, color: "#dc143c", xp: 50, coins: 20 }
+            { name: "Slime", health: 10, speed: 1.5, radius: 12, color: "#32cd32", xp: 5, coins: 1, behavior: "chase" },
+            { name: "Esqueleto", health: 20, speed: 2, radius: 14, color: "#c0c0c0", xp: 10, coins: 2, behavior: "chase" },
+            { name: "Fantasma", health: 15, speed: 2.5, radius: 10, color: "#9370db", xp: 8, coins: 3, behavior: "zigzag" },
+            { name: "Goblin", health: 25, speed: 1.8, radius: 16, color: "#ff6347", xp: 15, coins: 4, behavior: "chase" },
+            { name: "Bruxa", health: 30, speed: 1.5, radius: 14, color: "#8a2be2", xp: 20, coins: 5, behavior: "ranged" },
+            { name: "Cavaleiro", health: 50, speed: 1.2, radius: 18, color: "#696969", xp: 25, coins: 8, behavior: "chase" },
+            { name: "Boss", health: 200, speed: 1, radius: 30, color: "#dc143c", xp: 100, coins: 50, behavior: "boss" }
         ];
+
+        // Sons (simulação - em um jogo real, seriam arquivos de áudio)
+        const sounds = {
+            shoot: () => { /* Tocar som de tiro */ },
+            hit: () => { /* Tocar som de acerto */ },
+            levelUp: () => { /* Tocar som de level up */ },
+            collect: () => { /* Tocar som de coleta */ },
+            death: () => { /* Tocar som de morte */ }
+        };
 
         // Função para inicializar o jogo
         function initGame() {
@@ -364,13 +689,16 @@
                 y: canvas.height / 2,
                 radius: 15,
                 speed: 5 + (permanentUpgrades.speed * 0.1),
-                health: 100 + (permanentUpgrades.health * 5),
-                maxHealth: 100 + (permanentUpgrades.health * 5),
+                health: 100 + (permanentUpgrades.health * 10),
+                maxHealth: 100 + (permanentUpgrades.health * 10),
                 level: 1,
                 xp: 0,
                 xpToNextLevel: 100,
                 weapons: [],
-                coins: player.coins // Mantém as moedas entre tentativas
+                coins: player.coins, // Mantém as moedas entre tentativas
+                kills: 0,
+                invincible: false,
+                bossKills: playerBossKills
             };
 
             enemies = [];
@@ -381,6 +709,10 @@
             lastEnemySpawn = 0;
             enemySpawnRate = 1000;
             lastWeaponFire = 0;
+            wave = 1;
+            lastWaveIncrease = 0;
+            bossActive = false;
+            bossSpawned = false;
 
             // Adiciona uma arma inicial
             const initialWeapon = weapons[0];
@@ -391,6 +723,7 @@
             });
 
             updateUI();
+            updateAchievements();
             gameRunning = true;
             gameLoop();
         }
@@ -399,7 +732,7 @@
         function drawPlayer() {
             ctx.beginPath();
             ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
-            ctx.fillStyle = "#6a5acd";
+            ctx.fillStyle = player.invincible ? "rgba(106, 90, 205, 0.5)" : "#6a5acd";
             ctx.fill();
             ctx.strokeStyle = "#9d8aff";
             ctx.lineWidth = 2;
@@ -421,10 +754,21 @@
                 ctx.fillStyle = enemy.color;
                 ctx.fill();
                 
-                // Barra de vida
-                const healthPercentage = enemy.health / enemy.maxHealth;
-                ctx.fillStyle = "#ff0000";
-                ctx.fillRect(enemy.x - enemy.radius, enemy.y - enemy.radius - 10, enemy.radius * 2 * healthPercentage, 3);
+                // Barra de vida para inimigos com muita vida
+                if (enemy.maxHealth > 20) {
+                    const healthPercentage = enemy.health / enemy.maxHealth;
+                    ctx.fillStyle = "#ff0000";
+                    ctx.fillRect(enemy.x - enemy.radius, enemy.y - enemy.radius - 10, enemy.radius * 2 * healthPercentage, 3);
+                }
+                
+                // Efeito especial para chefes
+                if (enemy.name === "Boss") {
+                    ctx.beginPath();
+                    ctx.arc(enemy.x, enemy.y, enemy.radius + 5, 0, Math.PI * 2);
+                    ctx.strokeStyle = "rgba(220, 20, 60, 0.5)";
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                }
             });
         }
 
@@ -477,6 +821,21 @@
                     ctx.strokeStyle = weapon.color + "80";
                     ctx.lineWidth = 1;
                     ctx.stroke();
+                    
+                    // Efeitos especiais baseados no tipo de arma
+                    if (weapon.name === "Espada Flamejante") {
+                        ctx.beginPath();
+                        ctx.arc(projectile.x, projectile.y, 10, 0, Math.PI * 2);
+                        ctx.strokeStyle = "#ff450080";
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    } else if (weapon.name === "Orbe Congelante") {
+                        ctx.beginPath();
+                        ctx.arc(projectile.x, projectile.y, 12, 0, Math.PI * 2);
+                        ctx.strokeStyle = "#00ced180";
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
                 });
             });
         }
@@ -518,24 +877,59 @@
         // Função para mover inimigos
         function moveEnemies() {
             enemies.forEach(enemy => {
-                // Move em direção ao jogador
-                const dx = player.x - enemy.x;
-                const dy = player.y - enemy.y;
+                let dx = player.x - enemy.x;
+                let dy = player.y - enemy.y;
                 const distance = Math.sqrt(dx * dx + dy * dy);
                 
-                if (distance > 0) {
-                    enemy.x += (dx / distance) * enemy.speed;
-                    enemy.y += (dy / distance) * enemy.speed;
+                // Comportamentos diferentes para inimigos
+                if (enemy.behavior === "chase") {
+                    // Persegue o jogador
+                    if (distance > 0) {
+                        enemy.x += (dx / distance) * enemy.speed;
+                        enemy.y += (dy / distance) * enemy.speed;
+                    }
+                } else if (enemy.behavior === "zigzag") {
+                    // Move em zigue-zague em direção ao jogador
+                    if (distance > 0) {
+                        const angle = Math.atan2(dy, dx) + Math.sin(gameTime * 0.1) * 0.5;
+                        enemy.x += Math.cos(angle) * enemy.speed;
+                        enemy.y += Math.sin(angle) * enemy.speed;
+                    }
+                } else if (enemy.behavior === "ranged") {
+                    // Mantém distância e atira
+                    if (distance > 150) {
+                        enemy.x += (dx / distance) * enemy.speed;
+                        enemy.y += (dy / distance) * enemy.speed;
+                    } else if (distance < 100) {
+                        enemy.x -= (dx / distance) * enemy.speed;
+                        enemy.y -= (dy / distance) * enemy.speed;
+                    }
+                    
+                    // Lógica de ataque à distância (seria implementada com projéteis inimigos)
+                } else if (enemy.behavior === "boss") {
+                    // Comportamento de chefe - move-se mais lentamente mas é mais agressivo
+                    if (distance > 0) {
+                        enemy.x += (dx / distance) * enemy.speed;
+                        enemy.y += (dy / distance) * enemy.speed;
+                    }
+                    
+                    // Ataques especiais do chefe (seriam implementados com padrões)
                 }
                 
                 // Verifica colisão com o jogador
-                if (distance < player.radius + enemy.radius) {
+                if (distance < player.radius + enemy.radius && !player.invincible) {
                     player.health -= 1;
                     createParticles(enemy.x, enemy.y, 5, enemy.color);
                     
                     // Empurra o inimigo para trás
                     enemy.x -= (dx / distance) * 10;
                     enemy.y -= (dy / distance) * 10;
+                    
+                    // Torna o jogador temporariamente invencível
+                    player.invincible = true;
+                    setTimeout(() => {
+                        player.invincible = false;
+                    }, 1000);
                 }
             });
         }
@@ -546,6 +940,19 @@
                 if (!weapon.projectiles) return;
                 
                 weapon.projectiles.forEach((projectile, index) => {
+                    // Comportamentos diferentes baseados no tipo de arma
+                    if (weapon.behavior === "homing" && projectile.target) {
+                        // Armas que perseguem inimigos
+                        const dx = projectile.target.x - projectile.x;
+                        const dy = projectile.target.y - projectile.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (distance > 0 && distance < 300) {
+                            projectile.dx = dx / distance;
+                            projectile.dy = dy / distance;
+                        }
+                    }
+                    
                     // Move o projétil
                     projectile.x += projectile.dx * weapon.speed;
                     projectile.y += projectile.dy * weapon.speed;
@@ -564,9 +971,18 @@
                         const distance = Math.sqrt(dx * dx + dy * dy);
                         
                         if (distance < 5 + enemy.radius) {
+                            // Calcula dano (com chance de crítico)
+                            let damage = weapon.damage + (weapon.damage * permanentUpgrades.damage / 100);
+                            const isCrit = Math.random() < (permanentUpgrades.crit / 100);
+                            if (isCrit) damage *= 2;
+                            
                             // Aplica dano
-                            const damage = weapon.damage + (weapon.damage * permanentUpgrades.damage / 100);
                             enemy.health -= damage;
+                            
+                            // Roubo de vida
+                            if (permanentUpgrades.lifeSteal > 0) {
+                                player.health = Math.min(player.maxHealth, player.health + damage * (permanentUpgrades.lifeSteal / 100));
+                            }
                             
                             // Cria partículas
                             createParticles(enemy.x, enemy.y, 8, weapon.color);
@@ -582,8 +998,19 @@
                                     createCoinOrb(enemy.x, enemy.y);
                                 }
                                 
+                                // Contabiliza morte
+                                player.kills++;
+                                if (enemy.name === "Boss") {
+                                    playerBossKills++;
+                                    bossActive = false;
+                                    checkAchievement('boss_slayer');
+                                }
+                                
                                 // Remove o inimigo
                                 enemies.splice(enemyIndex, 1);
+                                
+                                // Verifica conquistas
+                                checkAchievement('first_blood');
                             }
                         }
                     });
@@ -669,6 +1096,7 @@
                     player.coins++;
                     createParticles(coin.x, coin.y, 5, "#ffcc00");
                     coinOrbs.splice(index, 1);
+                    checkAchievement('coin_collector');
                 }
             });
         }
@@ -678,6 +1106,10 @@
             player.level++;
             player.xp -= player.xpToNextLevel;
             player.xpToNextLevel = Math.floor(player.xpToNextLevel * 1.2);
+            
+            // Verifica conquistas de nível
+            checkAchievement('level_10');
+            checkAchievement('level_20');
             
             // Pausa o jogo e mostra a tela de upgrade
             gameRunning = false;
@@ -697,7 +1129,7 @@
                     if (!weapon.projectiles) weapon.projectiles = [];
                     
                     // Diferentes padrões de tiro baseados no tipo de arma
-                    if (weapon.name === "Lâminas Voadoras") {
+                    if (weapon.behavior === "radial" || weapon.name === "Lâminas Voadoras" || weapon.name === "Lâminas Tóxicas") {
                         // Dispara em 8 direções
                         for (let i = 0; i < 8; i++) {
                             const angle = (i / 8) * Math.PI * 2;
@@ -708,7 +1140,7 @@
                                 dy: Math.sin(angle)
                             });
                         }
-                    } else if (weapon.name === "Orbe da Morte") {
+                    } else if (weapon.behavior === "homing" || weapon.name === "Orbe da Morte") {
                         // Orbe que persegue o inimigo mais próximo
                         let targetEnemy = null;
                         let minDistance = Infinity;
@@ -737,8 +1169,37 @@
                                 target: targetEnemy
                             });
                         }
+                    } else if (weapon.behavior === "area" || weapon.name === "Orbe Congelante" || weapon.name === "Explosão Elemental") {
+                        // Dispara em uma direção, mas afeta área
+                        let targetEnemy = null;
+                        let minDistance = Infinity;
+                        
+                        enemies.forEach(enemy => {
+                            const dx = enemy.x - player.x;
+                            const dy = enemy.y - player.y;
+                            const distance = Math.sqrt(dx * dx + dy * dy);
+                            
+                            if (distance < minDistance) {
+                                minDistance = distance;
+                                targetEnemy = enemy;
+                            }
+                        });
+                        
+                        if (targetEnemy) {
+                            const dx = targetEnemy.x - player.x;
+                            const dy = targetEnemy.y - player.y;
+                            const distance = Math.sqrt(dx * dx + dy * dy);
+                            
+                            weapon.projectiles.push({
+                                x: player.x,
+                                y: player.y,
+                                dx: dx / distance,
+                                dy: dy / distance,
+                                isArea: true
+                            });
+                        }
                     } else {
-                        // Dispara na direção do inimigo mais próximo
+                        // Dispara na direção do inimigo mais próximo (comportamento padrão)
                         let targetEnemy = null;
                         let minDistance = Infinity;
                         
@@ -788,12 +1249,19 @@
                 // Aumenta a dificuldade com o tempo
                 enemySpawnRate = Math.max(200, 1000 - (gameTime / 10));
                 
+                // Spawna chefes em intervalos
+                if (!bossActive && !bossSpawned && gameTime > 30 && gameTime - lastWaveIncrease > 30) {
+                    spawnBoss();
+                    return;
+                }
+                
                 // Escolhe um tipo de inimigo baseado no tempo de jogo
                 let enemyTypeIndex = 0;
-                if (gameTime > 60) enemyTypeIndex = 4; // Boss após 1 minuto
-                else if (gameTime > 45) enemyTypeIndex = 3;
-                else if (gameTime > 30) enemyTypeIndex = 2;
-                else if (gameTime > 15) enemyTypeIndex = 1;
+                if (gameTime > 60) enemyTypeIndex = 5;
+                else if (gameTime > 45) enemyTypeIndex = 4;
+                else if (gameTime > 30) enemyTypeIndex = 3;
+                else if (gameTime > 20) enemyTypeIndex = 2;
+                else if (gameTime > 10) enemyTypeIndex = 1;
                 
                 const enemyType = enemyTypes[enemyTypeIndex];
                 
@@ -816,6 +1284,130 @@
             }
         }
 
+        // Função para spawnar um chefe
+        function spawnBoss() {
+            bossWarning.style.display = 'block';
+            setTimeout(() => {
+                bossWarning.style.display = 'none';
+                
+                const bossType = enemyTypes[6]; // Índice do chefe
+                
+                // Spawna o chefe no centro de uma das bordas
+                const side = Math.floor(Math.random() * 4);
+                let x, y;
+                
+                switch(side) {
+                    case 0: // Topo
+                        x = canvas.width / 2;
+                        y = -bossType.radius;
+                        break;
+                    case 1: // Direita
+                        x = canvas.width + bossType.radius;
+                        y = canvas.height / 2;
+                        break;
+                    case 2: // Baixo
+                        x = canvas.width / 2;
+                        y = canvas.height + bossType.radius;
+                        break;
+                    case 3: // Esquerda
+                        x = -bossType.radius;
+                        y = canvas.height / 2;
+                        break;
+                }
+                
+                enemies.push({
+                    ...bossType,
+                    x: x,
+                    y: y,
+                    maxHealth: bossType.health * wave,
+                    health: bossType.health * wave
+                });
+                
+                bossActive = true;
+                bossSpawned = true;
+                lastWaveIncrease = gameTime;
+            }, 2000);
+        }
+
+        // Função para verificar sinergias entre armas
+        function checkSynergies() {
+            const weaponNames = player.weapons.map(w => w.name);
+            
+            synergies.forEach(synergy => {
+                if (synergy.weapons.every(w => weaponNames.includes(w)) && 
+                    !weaponNames.includes(synergy.result)) {
+                    // Encontrou uma sinergia!
+                    const newWeapon = weapons.find(w => w.name === synergy.result);
+                    if (newWeapon) {
+                        player.weapons.push({
+                            ...newWeapon,
+                            lastFired: 0,
+                            level: 1
+                        });
+                        
+                        // Mostra notificação
+                        synergyNotification.textContent = `Sinergia: ${synergy.result}!`;
+                        synergyNotification.style.display = 'block';
+                        setTimeout(() => {
+                            synergyNotification.style.display = 'none';
+                        }, 3000);
+                        
+                        // Verifica conquista de mestre de armas
+                        checkAchievement('weapon_master');
+                        checkAchievement('unstoppable');
+                    }
+                }
+            });
+        }
+
+        // Função para verificar conquistas
+        function checkAchievement(id) {
+            const achievement = achievements.find(a => a.id === id);
+            if (achievement && !achievement.unlocked && achievement.check()) {
+                achievement.unlocked = true;
+                updateAchievements();
+                
+                // Recompensa por conquista
+                switch(id) {
+                    case 'first_blood':
+                        player.coins += 5;
+                        break;
+                    case 'level_10':
+                        player.coins += 10;
+                        break;
+                    case 'level_20':
+                        player.coins += 20;
+                        break;
+                    case 'coin_collector':
+                        player.coins += 25;
+                        break;
+                    case 'boss_slayer':
+                        player.coins += 50;
+                        break;
+                    case 'survivor':
+                        player.coins += 30;
+                        break;
+                    case 'weapon_master':
+                        player.coins += 15;
+                        break;
+                    case 'unstoppable':
+                        player.coins += 40;
+                        break;
+                }
+            }
+        }
+
+        // Função para atualizar a lista de conquistas
+        function updateAchievements() {
+            achievementsList.innerHTML = '';
+            achievements.forEach(achievement => {
+                const div = document.createElement('div');
+                div.className = `achievement ${achievement.unlocked ? 'unlocked' : ''}`;
+                div.innerHTML = `<strong>${achievement.name}</strong><br>${achievement.description}`;
+                achievementsList.appendChild(div);
+            });
+        }
+
         // Função para atualizar a UI
         function updateUI() {
             levelDisplay.textContent = player.level;
@@ -825,9 +1417,71 @@
             xpToNextLevelDisplay.textContent = Math.floor(player.xpToNextLevel);
             timeDisplay.textContent = Math.floor(gameTime);
             coinsDisplay.textContent = player.coins;
+            shopCoinsDisplay.textContent = player.coins;
             permDamageDisplay.textContent = permanentUpgrades.damage;
             permSpeedDisplay.textContent = permanentUpgrades.speed;
             permHealthDisplay.textContent = permanentUpgrades.health;
+            permCritDisplay.textContent = permanentUpgrades.crit;
+            permLifeStealDisplay.textContent = permanentUpgrades.lifeSteal;
+            waveDisplay.textContent = wave;
+            
+            // Verifica conquista de sobrevivência
+            if (gameTime >= 300) {
+                checkAchievement('survivor');
+            }
+        }
+
+        // Função para comprar upgrade permanente
+        function buyPermanentUpgrade(type) {
+            let cost = 0;
+            
+            switch(type) {
+                case 'damage':
+                    cost = 10;
+                    if (player.coins >= cost) {
+                        player.coins -= cost;
+                        permanentUpgrades.damage += 10;
+                    }
+                    break;
+                case 'speed':
+                    cost = 10;
+                    if (player.coins >= cost) {
+                        player.coins -= cost;
+                        permanentUpgrades.speed += 5;
+                    }
+                    break;
+                case 'health':
+                    cost = 15;
+                    if (player.coins >= cost) {
+                        player.coins -= cost;
+                        permanentUpgrades.health += 1;
+                    }
+                    break;
+                case 'crit':
+                    cost = 20;
+                    if (player.coins >= cost) {
+                        player.coins -= cost;
+                        permanentUpgrades.crit += 5;
+                    }
+                    break;
+                case 'lifeSteal':
+                    cost = 25;
+                    if (player.coins >= cost) {
+                        player.coins -= cost;
+                        permanentUpgrades.lifeSteal += 5;
+                    }
+                    break;
+                case 'area':
+                    cost = 30;
+                    if (player.coins >= cost) {
+                        player.coins -= cost;
+                        permanentUpgrades.area += 10;
+                    }
+                    break;
+            }
+            
+            updateUI();
+            savePermanentUpgrades();
         }
 
         // Função para mostrar tela de game over
@@ -836,6 +1490,7 @@
             survivedTimeDisplay.textContent = Math.floor(gameTime);
             finalLevelDisplay.textContent = player.level;
             finalCoinsDisplay.textContent = player.coins;
+            finalKillsDisplay.textContent = player.kills;
             gameOverScreen.style.display = 'block';
         }
 
@@ -848,6 +1503,13 @@
             
             // Atualiza o tempo
             gameTime += 1/60;
+            
+            // Aumenta a wave a cada 30 segundos
+            if (gameTime - lastWaveIncrease > 30 && !bossActive) {
+                wave++;
+                lastWaveIncrease = gameTime;
+                bossSpawned = false;
+            }
             
             // Move e desenha todos os elementos
             movePlayer();
@@ -882,6 +1544,15 @@
         // Event Listeners
         document.addEventListener('keydown', (e) => {
             keys[e.key] = true;
+            
+            // Tecla P para abrir a loja
+            if (e.key === 'p' || e.key === 'P') {
+                if (gameRunning) {
+                    gameRunning = false;
+                    shopScreen.style.display = 'block';
+                    updateUI();
+                }
+            }
         });
 
         document.addEventListener('keyup', (e) => {
@@ -906,6 +1577,9 @@
                             lastFired: 0,
                             level: 1
                         });
+                        
+                        // Verifica sinergias
+                        checkSynergies();
                     } else {
                         // Se já tem todas as armas, melhora uma aleatória
                         const randomWeapon = player.weapons[Math.floor(Math.random() * player.weapons.length)];
@@ -923,6 +1597,9 @@
                         });
                     } else if (randomStat === 'speed') {
                         player.speed *= 1.1;
+                        player.weapons.forEach(weapon => {
+                            weapon.speed *= 1.1;
+                        });
                     } else if (randomStat === 'health') {
                         player.maxHealth = Math.floor(player.maxHealth * 1.2);
                         player.health = player.maxHealth;
@@ -931,13 +1608,18 @@
                     // Habilidade especial que quebra o jogo
                     const specials = [
                         { name: "Dano Duplo", effect: () => player.weapons.forEach(w => w.damage *= 2) },
-                        { name: "Velocidade Máxima", effect: () => player.speed *= 1.5 },
+                        { name: "Velocidade Máxima", effect: () => {
+                            player.speed *= 1.5;
+                            player.weapons.forEach(w => w.speed *= 1.5);
+                        }},
                         { name: "Cura Completa", effect: () => player.health = player.maxHealth },
                         { name: "XP Extra", effect: () => player.xp += player.xpToNextLevel * 0.5 },
                         { name: "Invencibilidade", effect: () => {
                             player.health = player.maxHealth;
-                            // Efeito temporário de invencibilidade
-                            setTimeout(() => {}, 5000);
+                            player.invincible = true;
+                            setTimeout(() => {
+                                player.invincible = false;
+                            }, 5000);
                         }},
                         { name: "Moedas Duplas", effect: () => player.coins += 10 }
                     ];
@@ -952,6 +1634,20 @@
             });
         });
 
+        // Eventos para a loja
+        document.querySelectorAll('.shop-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const type = item.getAttribute('data-type');
+                buyPermanentUpgrade(type);
+            });
+        });
+
+        closeShopButton.addEventListener('click', () => {
+            shopScreen.style.display = 'none';
+            gameRunning = true;
+            gameLoop();
+        });
+
         // Botão de iniciar jogo
         startButton.addEventListener('click', () => {
             startScreen.style.display = 'none';
@@ -962,6 +1658,12 @@
         restartButton.addEventListener('click', () => {
             gameOverScreen.style.display = 'none';
             initGame();
+        });
+
+        // Botão para abrir a loja a partir do game over
+        shopButton.addEventListener('click', () => {
+            gameOverScreen.style.display = 'none';
+            shopScreen.style.display = 'block';
         });
 
         // Carrega upgrades permanentes do localStorage
@@ -980,6 +1682,7 @@
         // Inicializa o jogo
         loadPermanentUpgrades();
         updateUI();
+        updateAchievements();
     </script>
 </body>
 </html>
