@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sobrevivente do Caos v2</title>
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: #ffffff;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        #game-container {
+            position: relative;
+            border: 2px solid #fff;
+            box-shadow: 0 0 20px #fff;
+        }
+        canvas {
+            background-color: #000;
+            display: block;
+        }
+        .ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 18px;
+            text-shadow: 2px 2px 4px #000;
+        }
+        #ui-gold {
+            top: 10px;
+            right: 10px;
+            left: auto;
+        }
+        #health-bar-container {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 20px;
+            border: 1px solid #fff;
+        }
+        #health-bar {
+            background-color: #ff0000;
+            height: 100%;
+        }
+        #xp-bar-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+        }
+        #xp-bar {
+            background-color: #00aaff;
+            height: 100%;
+        }
+        .modal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            z-index: 100;
+        }
+        .modal-content {
+            background: #111;
+            padding: 30px;
+            border: 2px solid #fff;
+            max-width: 600px;
+        }
+        .upgrade-option {
+            border: 1px solid #888;
+            padding: 15px;
+            margin: 10px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.3s;
+        }
+        .upgrade-option:hover {
+            background-color: #333;
+            transform: scale(1.05);
+        }
+        .upgrade-option small {
+            color: #ccc;
+        }
+        button {
+            background: #333;
+            border: 1px solid #fff;
+            color: #fff;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+    <div id="ui-stats" class="ui">
+        Tempo: <span id="timer">0</span>s<br>
+        Nível: <span id="level">1</span><br>
+        Inimigos: <span id="enemy-count">0</span>
+    </div>
+    <div id="ui-gold" class="ui">
+        Ouro: <span id="gold">0</span>
+    </div>
+    <div id="health-bar-container">
+        <div id="health-bar"></div>
+    </div>
+    <div id="xp-bar-container">
+        <div id="xp-bar"></div>
+    </div>
+
+    <div id="start-modal" class="modal" style="display: flex;">
+        <div class="modal-content">
+            <h1>Sobrevivente do Caos</h1>
+            <div id="permanent-upgrades">
+                <h3>Upgrades Permanentes</h3>
+                <p>Ouro Total: <span id="total-gold-display">0</span></p>
+                <button id="upgrade-hp">+10 HP Máximo (Custo: 50 Ouro)</button><br>
+                <button id="upgrade-speed">+1% Velocidade (Custo: 75 Ouro)</button><br>
+                <button id="upgrade-luck">+1% Sorte (Custo: 100 Ouro)</button>
+            </div>
+            <button id="start-button">Iniciar Jogo</button>
+        </div>
+    </div>
+
+    <div id="level-up-modal" class="modal">
+        <div class="modal-content">
+            <h2>Nível Acima!</h2>
+            <p>Escolha um upgrade:</p>
+            <div id="upgrade-choices"></div>
+        </div>
+    </div>
+    
+    <div id="game-over-modal" class="modal">
+         <div class="modal-content">
+            <h2>Fim de Jogo</h2>
+            <p>Você sobreviveu por <span id="final-time">0</span> segundos.</p>
+            <p>Ouro coletado nesta run: <span id="run-gold">0</span></p>
+            <button id="restart-button">Tentar Novamente (Voltar ao Menu)</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Configurações e Estado do Jogo
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 900;
+    canvas.height = 700;
+
+    let player, enemies, projectiles, xpOrbs, effects, keys, gameTime, isGameOver, gamePaused, goldCollected;
+    let permanentUpgrades = { maxHpBonus: 0, speedBonus: 1, luckBonus: 0 };
+
+    // --- Elementos da UI (não precisa mudar) ---
+    // ... (código da UI igual ao anterior) ...
+    const timerDisplay = document.getElementById('timer');
+    const levelDisplay = document.getElementById('level');
+    const enemyCountDisplay = document.getElementById('enemy-count');
+    const goldDisplay = document.getElementById('gold');
+    const healthBar = document.getElementById('health-bar');
+    const xpBar = document.getElementById('xp-bar');
+    const levelUpModal = document.getElementById('level-up-modal');
+    const upgradeChoices = document.getElementById('upgrade-choices');
+    const gameOverModal = document.getElementById('game-over-modal');
+    const startModal = document.getElementById('start-modal');
+    const totalGoldDisplay = document.getElementById('total-gold-display');
+
+    // --- Armazenamento Permanente (não precisa mudar) ---
+    // ... (código de save/load igual ao anterior) ...
+    function savePermanentData() {
+        localStorage.setItem('chaosSurvivorData', JSON.stringify({
+            upgrades: permanentUpgrades,
+            totalGold: parseInt(localStorage.getItem('chaosSurvivorTotalGold') || '0')
+        }));
+    }
+    function loadPermanentData() {
+        const data = JSON.parse(localStorage.getItem('chaosSurvivorData'));
+        if (data && data.upgrades) {
+            permanentUpgrades = data.upgrades;
+        }
+        let totalGold = parseInt(localStorage.getItem('chaosSurvivorTotalGold') || '0');
+        totalGoldDisplay.textContent = totalGold;
+        return totalGold;
+    }
+    let totalGold = loadPermanentData();
+
+
+    // ====================================================================================
+    // --- DEFINIÇÃO DAS ARMAS ---
+    // Para criar uma nova arma, copie a estrutura de um objeto existente e modifique.
+    // - id: Identificador único.
+    // - name: Nome que aparece na tela.
+    // - level: Nível atual da arma (sempre começa em 0).
+    // - maxLevel: Nível máximo que a arma pode atingir.
+    // - description: Texto que aparece na tela de level up.
+    // - stats: Objeto com os atributos da arma (dano, cooldown, etc).
+    // - upgrade(stats): Função que modifica os 'stats' da arma a cada nível.
+    // - fire(player, weapon): Função que cria os projéteis/efeitos da arma.
+    // ====================================================================================
+
+    const weaponPool = [
+        { 
+            id: 'dagger', name: 'Adaga', level: 0, maxLevel: 5,
+            description: 'Atira uma adaga na direção que o jogador está se movendo.',
+            stats: { cooldown: 1800, damage: 12, projectiles: 1, speed: 6 },
+            upgrade: (stats) => { stats.cooldown *= 0.8; stats.damage += 8; if(stats.projectiles < 3) stats.projectiles++; },
+            fire: (p, w) => {
+                if (Date.now() - w.lastFired > w.stats.cooldown) {
+                    let angle = p.lastMoveAngle; // Atira na direção do movimento
+                    for(let i=0; i < w.stats.projectiles; i++) {
+                        projectiles.push(new Projectile(p.x, p.y, angle + (i - 1) * 0.2, w.stats.speed, w.stats.damage, 'lightgray'));
+                    }
+                    w.lastFired = Date.now();
+                }
+            }
+        },
+        { 
+            id: 'magic_missile', name: 'Míssil Mágico', level: 0, maxLevel: 5,
+            description: 'Dispara um míssil teleguiado no inimigo mais próximo.',
+            stats: { cooldown: 1500, damage: 10, projectiles: 1 },
+            upgrade: (stats) => { stats.cooldown *= 0.85; stats.damage += 5; if (stats.projectiles < 4) stats.projectiles++; },
+            fire: (p, w) => {
+                if (Date.now() - w.lastFired > w.stats.cooldown) {
+                    enemies.sort((a, b) => dist(p, a) - dist(p, b));
+                    for (let i = 0; i < Math.min(enemies.length, w.stats.projectiles); i++) {
+                        const target = enemies[i];
+                        const angle = Math.atan2(target.y - p.y, target.x - p.x);
+                        projectiles.push(new Projectile(p.x, p.y, angle, 5, w.stats.damage, 'cyan'));
+                    }
+                    w.lastFired = Date.now();
+                }
+            }
+        },
+        {
+            id: 'whip', name: 'Chicote', level: 0, maxLevel: 5,
+            description: 'Ataca horizontalmente em ambos os lados.',
+            stats: { cooldown: 2000, damage: 15, width: 80, height: 10 },
+            upgrade: (stats) => { stats.cooldown *= 0.85; stats.damage += 10; stats.width += 20; },
+            fire: (p, w) => {
+                if (Date.now() - w.lastFired > w.stats.cooldown) {
+                    // Efeito visual do chicote
+                    effects.push(new Effect(p.x - (w.stats.width/2) - 10, p.y - (w.stats.height/2), w.stats.width, w.stats.height, 'white', 100));
+                    effects.push(new Effect(p.x + 10, p.y - (w.stats.height/2), w.stats.width, w.stats.height, 'white', 100));
+                    // Causa dano em área
+                    enemies.forEach(e => {
+                        if ((e.x > p.x - w.stats.width - 10 && e.x < p.x - 10 && Math.abs(e.y - p.y) < w.stats.height) ||
+                            (e.x > p.x + 10 && e.x < p.x + w.stats.width + 10 && Math.abs(e.y - p.y) < w.stats.height)) {
+                            e.takeDamage(w.stats.damage);
+                        }
+                    });
+                    w.lastFired = Date.now();
+                }
+            }
+        },
+        {
+            id: 'holy_water', name: 'Água Benta', level: 0, maxLevel: 5,
+            description: 'Lança um frasco que cria uma área de dano consagrado no chão.',
+            stats: { cooldown: 2500, damage: 5, duration: 3000, radius: 40 },
+            upgrade: (stats) => { stats.duration += 1000; stats.radius += 10; stats.damage += 3; },
+            fire: (p, w) => {
+                if (Date.now() - w.lastFired > w.stats.cooldown) {
+                    const targetX = p.x + (Math.random() - 0.5) * 200;
+                    const targetY = p.y + (Math.random() - 0.5) * 200;
+                    projectiles.push(new ThrownProjectile(p.x, p.y, targetX, targetY, () => {
+                        effects.push(new GroundEffect(targetX, targetY, w.stats.radius, w.stats.damage, w.stats.duration, 'lightblue'));
+                    }));
+                    w.lastFired = Date.now();
+                }
+            }
+        },
+        {
+            id: 'axe', name: 'Machado', level: 0, maxLevel: 5,
+            description: 'Lança um machado em arco que atravessa inimigos.',
+            stats: { cooldown: 3000, damage: 40, projectiles: 1, pierce: true },
+            upgrade: (stats) => { stats.cooldown *= 0.85; stats.damage += 20; if (stats.projectiles < 3) stats.projectiles++ },
+            fire: (p, w) => {
+                if(Date.now() - w.lastFired > w.stats.cooldown) {
+                    for(let i = 0; i < w.stats.projectiles; i++) {
+                         projectiles.push(new ArcingProjectile(p.x, p.y, (Math.random() > 0.5 ? 1 : -1) * (3 + Math.random()), -10, w.stats.damage, 'orange'));
+                    }
+                    w.lastFired = Date.now();
+                }
+            }
+        },
+    ];
+
+    // --- Classes do Jogo ---
+    class Player {
+        constructor() {
+            this.x = canvas.width / 2;
+            this.y = canvas.height / 2;
+            this.size = 20;
+            this.baseSpeed = 3;
+            this.maxHp = 100 + permanentUpgrades.maxHpBonus;
+            this.hp = this.maxHp;
+            this.level = 1;
+            this.xp = 0;
+            this.xpToNextLevel = 10;
+            this.weapons = [];
+            this.invincible = false;
+            this.lastMoveAngle = 0;
+        }
+        get speed() { return this.baseSpeed * permanentUpgrades.speedBonus; }
+        update() {
+            let dx = 0, dy = 0;
+            if (keys['w'] || keys['ArrowUp']) dy -= 1;
+            if (keys['s'] || keys['ArrowDown']) dy += 1;
+            if (keys['a'] || keys['ArrowLeft']) dx -= 1;
+            if (keys['d'] || keys['ArrowRight']) dx += 1;
+
+            if (dx !== 0 || dy !== 0) {
+                this.lastMoveAngle = Math.atan2(dy, dx);
+                this.x += dx * this.speed / Math.sqrt(dx*dx + dy*dy);
+                this.y += dy * this.speed / Math.sqrt(dx*dx + dy*dy);
+            }
+
+            this.x = Math.max(this.size / 2, Math.min(canvas.width - this.size / 2, this.x));
+            this.y = Math.max(this.size / 2, Math.min(canvas.height - this.size / 2, this.y));
+            
+            this.weapons.forEach(w => w.fire(this, w));
+        }
+        draw() { /* ... igual antes ... */ 
+            ctx.fillStyle = this.invincible ? 'rgba(255, 255, 255, 0.5)' : 'white';
+            ctx.fillRect(this.x - this.size / 2, this.y - this.size / 2, this.size, this.size);
+        }
+        takeDamage(amount) { /* ... igual antes ... */
+             if (this.invincible) return;
+            this.hp -= amount;
+            this.invincible = true;
+            setTimeout(() => this.invincible = false, 1000);
+            if (this.hp <= 0) {
+                isGameOver = true;
+                showGameOver();
+            }
+        }
+        gainXP(amount) { /* ... igual antes ... */
+            this.xp += amount;
+            if (this.xp >= this.xpToNextLevel) {
+                this.level++;
+                this.xp -= this.xpToNextLevel;
+                this.xpToNextLevel = Math.floor(this.xpToNextLevel * 1.5);
+                levelUp();
+            }
+        }
+        addWeapon(id) {
+            const weaponDef = weaponPool.find(w => w.id === id);
+            if(weaponDef && weaponDef.level === 0) {
+                const newWeapon = {
+                    id: weaponDef.id,
+                    stats: JSON.parse(JSON.stringify(weaponDef.stats)), // Deep copy
+                    fire: weaponDef.fire,
+                    lastFired: 0
+                };
+                this.weapons.push(newWeapon);
+                weaponDef.level = 1;
+            }
+        }
+    }
+
+    class Enemy {
+        constructor(x, y, hp, speed, size, color) { /* ... igual antes ... */
+            this.x = x; this.y = y; this.hp = hp; this.speed = speed; this.size = size; this.color = color;
+        }
+        update() { /* ... igual antes ... */
+            const angle = Math.atan2(player.y - this.y, player.x - this.x);
+            this.x += Math.cos(angle) * this.speed;
+            this.y += Math.sin(angle) * this.speed;
+        }
+        draw() { /* ... igual antes ... */
+            ctx.fillStyle = this.color;
+            ctx.fillRect(this.x - this.size / 2, this.y - this.size / 2, this.size, this.size);
+        }
+        takeDamage(amount) {
+            this.hp -= amount;
+            if (this.hp <= 0) {
+                const index = enemies.indexOf(this);
+                if (index > -1) {
+                    enemies.splice(index, 1);
+                    xpOrbs.push(new XPOrb(this.x, this.y, 1));
+                    if(Math.random() * 100 < 5 + permanentUpgrades.luckBonus) {
+                        xpOrbs.push(new XPOrb(this.x, this.y, 100));
+                    }
+                }
+            }
+        }
+    }
+    
+    // Classes de Projéteis e Efeitos
+    class Projectile { /* ... igual antes ... */
+        constructor(x, y, angle, speed, damage, color) {
+            this.x = x; this.y = y; this.size = 8; this.speed = speed; this.damage = damage; this.color = color;
+            this.vx = Math.cos(angle) * speed; this.vy = Math.sin(angle) * speed;
+            this.life = 3000; this.createdAt = Date.now();
+        }
+        update() { this.x += this.vx; this.y += this.vy; }
+        draw() {
+            ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(this.x, this.y, this.size / 2, 0, Math.PI * 2); ctx.fill();
+        }
+    }
+    class ThrownProjectile extends Projectile {
+        constructor(x, y, targetX, targetY, onHitCallback) {
+            const angle = Math.atan2(targetY - y, targetX - x);
+            super(x, y, angle, 4, 0, 'gray');
+            this.targetX = targetX; this.targetY = targetY; this.onHitCallback = onHitCallback;
+        }
+        update() {
+            super.update();
+            if (dist(this, {x: this.targetX, y: this.targetY}) < 10) {
+                this.onHitCallback();
+                this.createdAt = 0; // Marca para remoção
+            }
+        }
+    }
+    class ArcingProjectile extends Projectile {
+        constructor(x, y, vx, vy, damage, color) {
+            super(x, y, 0, 0, damage, color);
+            this.vx = vx; this.vy = vy; this.gravity = 0.2; this.size = 16;
+            this.damagedEnemies = new Set();
+        }
+        update() {
+            this.vy += this.gravity;
+            super.update();
+        }
+        draw() {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.rotate(Date.now() / 100);
+            ctx.fillStyle = this.color;
+            ctx.fillRect(-this.size/2, -this.size/2, this.size, this.size);
+            ctx.restore();
+        }
+    }
+    class Effect {
+        constructor(x, y, width, height, color, duration) {
+            this.x = x; this.y = y; this.width = width; this.height = height; this.color = color;
+            this.duration = duration; this.createdAt = Date.now();
+        }
+        draw() {
+            ctx.globalAlpha = 0.6;
+            ctx.fillStyle = this.color;
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+            ctx.globalAlpha = 1.0;
+        }
+    }
+    class GroundEffect extends Effect {
+        constructor(x, y, radius, damage, duration, color) {
+            super(x, y, 0, 0, color, duration);
+            this.radius = radius;
+            this.damage = damage;
+            this.lastDamageTime = 0;
+            this.damagedEnemies = new Set();
+        }
+        update() {
+            if (Date.now() - this.lastDamageTime > 500) {
+                this.damagedEnemies.clear();
+                enemies.forEach(e => {
+                    if (dist(this, e) < this.radius && !this.damagedEnemies.has(e)) {
+                        e.takeDamage(this.damage);
+                        this.damagedEnemies.add(e);
+                    }
+                });
+                this.lastDamageTime = Date.now();
+            }
+        }
+        draw() {
+            ctx.globalAlpha = 0.4;
+            ctx.fillStyle = this.color;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1.0;
+        }
+    }
+
+    class XPOrb { /* ... igual antes ... */
+        constructor(x, y, value) { this.x = x; this.y = y; this.value = value; this.size = 10; }
+        update() {
+            if (dist(this, player) < 80) {
+                const angle = Math.atan2(player.y - this.y, player.x - this.x);
+                this.x += Math.cos(angle) * 6; this.y += Math.sin(angle) * 6;
+            }
+        }
+        draw() { /* ... igual antes ... */
+             if (this.value > 1) { // Desenha ouro de forma diferente
+                ctx.fillStyle = 'gold'; ctx.beginPath(); ctx.arc(this.x, this.y, 5, 0, Math.PI * 2); ctx.fill();
+            } else {
+                 ctx.fillStyle = 'blue'; ctx.beginPath(); ctx.moveTo(this.x, this.y - this.size / 2); ctx.lineTo(this.x + this.size / 2, this.y); ctx.lineTo(this.x, this.y + this.size / 2); ctx.lineTo(this.x - this.size / 2, this.y); ctx.closePath(); ctx.fill();
+            }
+        }
+    }
+
+
+    // --- Funções de Controle do Jogo ---
+    function init() {
+        player = new Player();
+        enemies = [];
+        projectiles = [];
+        xpOrbs = [];
+        effects = [];
+        keys = {};
+        gameTime = 0;
+        isGameOver = false;
+        gamePaused = false;
+        goldCollected = 0;
+        weaponPool.forEach(w => w.level = 0); // Reseta níveis das armas
+        
+        player.addWeapon('dagger'); // COMEÇA COM A ADAGA
+
+        levelUpModal.style.display = 'none';
+        gameOverModal.style.display = 'none';
+        startModal.style.display = 'none';
+        
+        gameLoop();
+        setInterval(() => { if (!gamePaused && !isGameOver) gameTime++; }, 1000);
+        setInterval(spawnEnemy, 800);
+    }
+
+    function gameLoop() {
+        if (isGameOver) return;
+        
+        if (!gamePaused) {
+            update();
+        }
+        draw(); // Desenha mesmo se pausado para mostrar a tela congelada
+
+        requestAnimationFrame(gameLoop);
+    }
+    
+    function update() {
+        player.update();
+        
+        enemies.forEach(e => {
+            e.update();
+            if (dist(player, e) < player.size / 2 + e.size / 2) {
+                player.takeDamage(10);
+            }
+        });
+
+        projectiles = projectiles.filter(p => Date.now() - p.createdAt < p.life && p.y < canvas.height + 50);
+        projectiles.forEach(p => {
+            p.update();
+            let destroyed = false;
+            enemies.forEach(e => {
+                if (!destroyed && dist(p, e) < p.size / 2 + e.size / 2) {
+                    if (p.damagedEnemies && p.damagedEnemies.has(e)) return;
+                    e.takeDamage(p.damage);
+                    if (p.damagedEnemies) p.damagedEnemies.add(e);
+                    if (!p.pierce) destroyed = true;
+                }
+            });
+            if (destroyed) p.createdAt = 0;
+        });
+
+        effects = effects.filter(e => Date.now() - e.createdAt < e.duration);
+        effects.forEach(e => { if (e.update) e.update(); });
+        
+        xpOrbs = xpOrbs.filter(orb => {
+            orb.update();
+            if (dist(player, orb) < player.size / 2 + 5) {
+                if(orb.value > 1) goldCollected++; else player.gainXP(orb.value);
+                return false;
+            }
+            return true;
+        });
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        player.draw();
+        enemies.forEach(e => e.draw());
+        projectiles.forEach(p => p.draw());
+        effects.forEach(e => e.draw());
+        xpOrbs.forEach(orb => orb.draw());
+
+        // UI
+        timerDisplay.textContent = gameTime;
+        levelDisplay.textContent = player.level;
+        enemyCountDisplay.textContent = enemies.length;
+        goldDisplay.textContent = goldCollected;
+        healthBar.style.width = `${(player.hp / player.maxHp) * 100}%`;
+        xpBar.style.width = `${(player.xp / player.xpToNextLevel) * 100}%`;
+    }
+
+    function spawnEnemy() {
+        if (gamePaused || isGameOver) return;
+        const side = Math.floor(Math.random() * 4);
+        let x, y;
+        if (side === 0) { x = -20; y = Math.random() * canvas.height; }
+        else if (side === 1) { x = canvas.width + 20; y = Math.random() * canvas.height; }
+        else if (side === 2) { y = -20; x = Math.random() * canvas.width; }
+        else { y = canvas.height + 20; x = Math.random() * canvas.width; }
+
+        const difficulty = 1 + Math.floor(gameTime / 20);
+        const hp = 10 * difficulty + (gameTime > 120 ? gameTime : 0);
+        const speed = Math.min(3, 0.8 + Math.random() * 0.5 + difficulty * 0.1);
+        const size = 15 + Math.random() * 5;
+        const color = `hsl(${Math.random() * 60 + 300}, 100%, 50%)`;
+        
+        for (let i = 0; i < Math.min(10, 1 + Math.floor(gameTime/10)); i++) {
+             enemies.push(new Enemy(x + (Math.random()-0.5)*50, y+(Math.random()-0.5)*50, hp, speed, size, color));
+        }
+    }
+    
+    function levelUp() {
+        gamePaused = true; // PAUSA O JOGO
+        levelUpModal.style.display = 'flex';
+        upgradeChoices.innerHTML = '';
+
+        let potentialUpgrades = [];
+        // 1. Pegar armas que o jogador JÁ TEM e que podem ser melhoradas
+        player.weapons.forEach(w => {
+            const def = weaponPool.find(wp => wp.id === w.id);
+            if (def.level < def.maxLevel) {
+                potentialUpgrades.push({type: 'upgrade', def: def});
+            }
+        });
+
+        // 2. Pegar armas que o jogador AINDA NÃO TEM
+        if (player.weapons.length < 6) { // Limite de 6 armas
+            weaponPool.forEach(def => {
+                if (def.level === 0) {
+                     potentialUpgrades.push({type: 'new', def: def});
+                }
+            });
+        }
+        
+        // 3. Embaralhar e escolher 3 opções
+        potentialUpgrades.sort(() => Math.random() - 0.5);
+        const choices = potentialUpgrades.slice(0, 3);
+        
+        // 4. Adicionar fallback se não tiver opções suficientes
+        while (choices.length < 3) {
+            choices.push({type: 'stat', name: 'Frango Assado', description: 'Cura 30% da vida máxima.', action: () => { player.hp = Math.min(player.maxHp, player.hp + player.maxHp * 0.3); }});
+        }
+
+        choices.forEach(choice => {
+            const optionDiv = document.createElement('div');
+            optionDiv.className = 'upgrade-option';
+            if (choice.type === 'upgrade') {
+                optionDiv.innerHTML = `<strong>${choice.def.name} Nv. ${choice.def.level + 1}</strong><br><small>${choice.def.description}</small>`;
+                optionDiv.onclick = () => selectUpgrade(choice.def.id, 'upgrade');
+            } else if (choice.type === 'new') {
+                optionDiv.innerHTML = `<strong>NOVA ARMA: ${choice.def.name}</strong><br><small>${choice.def.description}</small>`;
+                optionDiv.onclick = () => selectUpgrade(choice.def.id, 'new');
+            } else { // Stat/Fallback
+                 optionDiv.innerHTML = `<strong>${choice.name}</strong><br><small>${choice.description}</small>`;
+                 optionDiv.onclick = () => { choice.action(); finishLevelUp(); };
+            }
+            upgradeChoices.appendChild(optionDiv);
+        });
+    }
+
+    function selectUpgrade(id, type) {
+        if (type === 'upgrade') {
+            const weaponDef = weaponPool.find(w => w.id === id);
+            let playerWeapon = player.weapons.find(w => w.id === id);
+            weaponDef.upgrade(playerWeapon.stats);
+            weaponDef.level++;
+        } else if (type === 'new') {
+            player.addWeapon(id);
+        }
+        finishLevelUp();
+    }
+    
+    function finishLevelUp() {
+        levelUpModal.style.display = 'none';
+        gamePaused = false; // DESPAUSA O JOGO
+    }
+
+    function showGameOver() { /* ... igual antes ... */
+        document.getElementById('final-time').textContent = gameTime;
+        document.getElementById('run-gold').textContent = goldCollected;
+        gameOverModal.style.display = 'flex';
+        let currentTotalGold = parseInt(localStorage.getItem('chaosSurvivorTotalGold') || '0');
+        currentTotalGold += goldCollected;
+        localStorage.setItem('chaosSurvivorTotalGold', currentTotalGold);
+        totalGold = currentTotalGold;
+    }
+    
+    function dist(a, b) { return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2); }
+
+    // --- Listeners de Eventos (iguais ao anterior) ---
+    window.addEventListener('keydown', e => keys[e.key] = true);
+    window.addEventListener('keyup', e => keys[e.key] = false);
+    document.getElementById('start-button').addEventListener('click', () => { startModal.style.display = 'none'; init(); });
+    document.getElementById('restart-button').addEventListener('click', () => { gameOverModal.style.display = 'none'; startModal.style.display = 'flex'; totalGoldDisplay.textContent = totalGold; });
+    document.getElementById('upgrade-hp').addEventListener('click', () => { if (totalGold >= 50) { totalGold -= 50; permanentUpgrades.maxHpBonus += 10; localStorage.setItem('chaosSurvivorTotalGold', totalGold); savePermanentData(); totalGoldDisplay.textContent = totalGold; alert('HP Máximo aumentado!'); } else { alert('Ouro insuficiente!'); } });
+    document.getElementById('upgrade-speed').addEventListener('click', () => { if (totalGold >= 75) { totalGold -= 75; permanentUpgrades.speedBonus += 0.01; localStorage.setItem('chaosSurvivorTotalGold', totalGold); savePermanentData(); totalGoldDisplay.textContent = totalGold; alert('Velocidade aumentada!'); } else { alert('Ouro insuficiente!'); } });
+    document.getElementById('upgrade-luck').addEventListener('click', () => { if (totalGold >= 100) { totalGold -= 100; permanentUpgrades.luckBonus += 1; localStorage.setItem('chaosSurvivorTotalGold', totalGold); savePermanentData(); totalGoldDisplay.textContent = totalGold; alert('Sorte aumentada! Maior chance de drops de ouro.'); } else { alert('Ouro insuficiente!'); } });
+
+</script>
+
+</body>
+</html>

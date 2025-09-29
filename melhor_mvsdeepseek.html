@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Breaker - Vampire Survivors Clone</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0c0c2e, #1a1a3e);
+            color: #fff;
+            min-height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .game-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            border: 2px solid #4a4a8a;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(106, 90, 205, 0.5);
+        }
+        
+        #gameCanvas {
+            background-color: #121233;
+        }
+        
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .stats {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            pointer-events: none;
+        }
+        
+        .level-up-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(20, 20, 50, 0.95);
+            border: 2px solid #6a5acd;
+            border-radius: 10px;
+            padding: 20px;
+            width: 80%;
+            display: none;
+            pointer-events: all;
+            z-index: 10;
+        }
+        
+        .level-up-screen h2 {
+            text-align: center;
+            margin-bottom: 15px;
+            color: #9d8aff;
+        }
+        
+        .upgrade-options {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+        }
+        
+        .upgrade-option {
+            background: #2a2a5a;
+            border: 1px solid #6a5acd;
+            border-radius: 5px;
+            padding: 10px;
+            width: 30%;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .upgrade-option:hover {
+            background: #3a3a7a;
+            transform: scale(1.05);
+        }
+        
+        .upgrade-option h3 {
+            color: #9d8aff;
+            margin-bottom: 5px;
+        }
+        
+        .permanent-upgrades {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            pointer-events: none;
+        }
+        
+        .game-over-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(20, 20, 50, 0.95);
+            border: 2px solid #6a5acd;
+            border-radius: 10px;
+            padding: 30px;
+            width: 70%;
+            text-align: center;
+            display: none;
+            pointer-events: all;
+            z-index: 10;
+        }
+        
+        .game-over-screen h2 {
+            color: #ff6b6b;
+            margin-bottom: 15px;
+        }
+        
+        .game-over-screen button, .start-screen button {
+            background: #6a5acd;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin-top: 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+        
+        .game-over-screen button:hover, .start-screen button:hover {
+            background: #7b6be0;
+        }
+        
+        .start-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(20, 20, 50, 0.95);
+            border: 2px solid #6a5acd;
+            border-radius: 10px;
+            padding: 30px;
+            width: 70%;
+            text-align: center;
+            pointer-events: all;
+            z-index: 10;
+        }
+        
+        .start-screen h1 {
+            color: #9d8aff;
+            margin-bottom: 20px;
+            font-size: 36px;
+        }
+        
+        .start-screen p {
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+        
+        .instructions {
+            text-align: left;
+            margin: 20px 0;
+            background: rgba(42, 42, 90, 0.7);
+            padding: 15px;
+            border-radius: 5px;
+        }
+        
+        .instructions h3 {
+            color: #9d8aff;
+            margin-bottom: 10px;
+        }
+        
+        .instructions ul {
+            list-style-type: none;
+            padding-left: 10px;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+        }
+        
+        .instructions li:before {
+            content: "•";
+            color: #6a5acd;
+            display: inline-block;
+            width: 1em;
+            margin-left: -1em;
+        }
+    </style>
+</head>
+<body>
+    <h1>Game Breaker - Vampire Survivors Clone</h1>
+    <p>O objetivo é "quebrar" o jogo ficando absurdamente forte!</p>
+    
+    <div class="game-container">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        
+        <div class="ui-overlay">
+            <div class="stats">
+                <div>Nível: <span id="level">1</span></div>
+                <div>Vida: <span id="health">100</span>/<span id="maxHealth">100</span></div>
+                <div>XP: <span id="xp">0</span>/<span id="xpToNextLevel">100</span></div>
+                <div>Tempo: <span id="time">0</span>s</div>
+            </div>
+            
+            <div class="permanent-upgrades">
+                <div>Moedas: <span id="coins">0</span></div>
+                <div>Dano: +<span id="permDamage">0</span>%</div>
+                <div>Velocidade: +<span id="permSpeed">0</span>%</div>
+                <div>Vida Máxima: +<span id="permHealth">0</span>%</div>
+            </div>
+        </div>
+        
+        <div class="level-up-screen" id="levelUpScreen">
+            <h2>Subiu de Nível!</h2>
+            <p>Escolha um upgrade:</p>
+            <div class="upgrade-options">
+                <div class="upgrade-option" data-type="weapon">
+                    <h3>Arma Nova</h3>
+                    <p>Ganhe uma nova arma para atacar inimigos</p>
+                </div>
+                <div class="upgrade-option" data-type="stat">
+                    <h3>Melhoria de Status</h3>
+                    <p>Aumente dano, velocidade ou vida</p>
+                </div>
+                <div class="upgrade-option" data-type="special">
+                    <h3>Habilidade Especial</h3>
+                    <p>Uma habilidade única para quebrar o jogo</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="start-screen" id="startScreen">
+            <h1>Game Breaker</h1>
+            <p>O objetivo é sobreviver o máximo de tempo possível enquanto coleta XP e upgrades para se tornar absurdamente forte!</p>
+            
+            <div class="instructions">
+                <h3>Como Jogar:</h3>
+                <ul>
+                    <li>Use as teclas WASD ou setas para mover seu personagem</li>
+                    <li>Mate inimigos para ganhar XP</li>
+                    <li>Colete XP (orbs azuis) para subir de nível</li>
+                    <li>Ao subir de nível, escolha upgrades para se tornar mais forte</li>
+                    <li>Moedas (orbs douradas) são usadas para upgrades permanentes</li>
+                    <li>Quanto mais tempo sobreviver, mais difícil fica!</li>
+                </ul>
+            </div>
+            
+            <button id="startButton">Iniciar Jogo</button>
+        </div>
+        
+        <div class="game-over-screen" id="gameOverScreen">
+            <h2>Fim de Jogo!</h2>
+            <p>Você sobreviveu por <span id="survivedTime">0</span> segundos</p>
+            <p>Conseguiu <span id="finalLevel">0</span> níveis</p>
+            <p>Coletou <span id="finalCoins">0</span> moedas</p>
+            <button id="restartButton">Jogar Novamente</button>
+        </div>
+    </div>
+
+    <script>
+        // Elementos do DOM
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const levelDisplay = document.getElementById('level');
+        const healthDisplay = document.getElementById('health');
+        const maxHealthDisplay = document.getElementById('maxHealth');
+        const xpDisplay = document.getElementById('xp');
+        const xpToNextLevelDisplay = document.getElementById('xpToNextLevel');
+        const timeDisplay = document.getElementById('time');
+        const coinsDisplay = document.getElementById('coins');
+        const permDamageDisplay = document.getElementById('permDamage');
+        const permSpeedDisplay = document.getElementById('permSpeed');
+        const permHealthDisplay = document.getElementById('permHealth');
+        const levelUpScreen = document.getElementById('levelUpScreen');
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const startButton = document.getElementById('startButton');
+        const restartButton = document.getElementById('restartButton');
+        const survivedTimeDisplay = document.getElementById('survivedTime');
+        const finalLevelDisplay = document.getElementById('finalLevel');
+        const finalCoinsDisplay = document.getElementById('finalCoins');
+
+        // Variáveis do jogo
+        let gameRunning = false;
+        let player = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            radius: 15,
+            speed: 5,
+            health: 100,
+            maxHealth: 100,
+            level: 1,
+            xp: 0,
+            xpToNextLevel: 100,
+            weapons: [],
+            coins: 0
+        };
+
+        // Upgrades permanentes (persistem entre partidas)
+        let permanentUpgrades = {
+            damage: 0,
+            speed: 0,
+            health: 0,
+            coins: 0
+        };
+
+        // Arrays de objetos do jogo
+        let enemies = [];
+        let xpOrbs = [];
+        let coinOrbs = [];
+        let particles = [];
+        let keys = {};
+        let gameTime = 0;
+        let lastEnemySpawn = 0;
+        let enemySpawnRate = 1000; // ms
+        let lastWeaponFire = 0;
+        let weaponFireRate = 500; // ms
+
+        // Armas disponíveis
+        const weapons = [
+            { name: "Espada Mágica", damage: 10, speed: 1, range: 100, color: "#9d8aff", description: "Ataca inimigos próximos" },
+            { name: "Bola de Fogo", damage: 15, speed: 3, range: 200, color: "#ff6b6b", description: "Projétil de fogo de longo alcance" },
+            { name: "Raio Gélido", damage: 12, speed: 2, range: 150, color: "#6bc5ff", description: "Congela inimigos por um curto período" },
+            { name: "Lâminas Voadoras", damage: 8, speed: 4, range: 120, color: "#ffcc6b", description: "Múltiplos projéteis em diferentes direções" },
+            { name: "Orbe da Morte", damage: 25, speed: 1.5, range: 180, color: "#8b008b", description: "Orbe que persegue inimigos" },
+            { name: "Espinhos Venenosos", damage: 7, speed: 2, range: 130, color: "#32cd32", description: "Envenena inimigos causando dano contínuo" }
+        ];
+
+        // Inimigos disponíveis
+        const enemyTypes = [
+            { name: "Slime", health: 10, speed: 1.5, radius: 12, color: "#32cd32", xp: 5, coins: 1 },
+            { name: "Esqueleto", health: 20, speed: 2, radius: 14, color: "#c0c0c0", xp: 10, coins: 2 },
+            { name: "Fantasma", health: 15, speed: 2.5, radius: 10, color: "#9370db", xp: 8, coins: 3 },
+            { name: "Goblin", health: 25, speed: 1.8, radius: 16, color: "#ff6347", xp: 15, coins: 4 },
+            { name: "Boss", health: 100, speed: 1, radius: 25, color: "#dc143c", xp: 50, coins: 20 }
+        ];
+
+        // Função para inicializar o jogo
+        function initGame() {
+            player = {
+                x: canvas.width / 2,
+                y: canvas.height / 2,
+                radius: 15,
+                speed: 5 + (permanentUpgrades.speed * 0.1),
+                health: 100 + (permanentUpgrades.health * 5),
+                maxHealth: 100 + (permanentUpgrades.health * 5),
+                level: 1,
+                xp: 0,
+                xpToNextLevel: 100,
+                weapons: [],
+                coins: player.coins // Mantém as moedas entre tentativas
+            };
+
+            enemies = [];
+            xpOrbs = [];
+            coinOrbs = [];
+            particles = [];
+            gameTime = 0;
+            lastEnemySpawn = 0;
+            enemySpawnRate = 1000;
+            lastWeaponFire = 0;
+
+            // Adiciona uma arma inicial
+            const initialWeapon = weapons[0];
+            player.weapons.push({
+                ...initialWeapon,
+                lastFired: 0,
+                level: 1
+            });
+
+            updateUI();
+            gameRunning = true;
+            gameLoop();
+        }
+
+        // Função para desenhar o jogador
+        function drawPlayer() {
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+            ctx.fillStyle = "#6a5acd";
+            ctx.fill();
+            ctx.strokeStyle = "#9d8aff";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Desenha uma aura ao redor do jogador
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, player.radius + 5, 0, Math.PI * 2);
+            ctx.strokeStyle = "rgba(157, 138, 255, 0.3)";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        // Função para desenhar inimigos
+        function drawEnemies() {
+            enemies.forEach(enemy => {
+                ctx.beginPath();
+                ctx.arc(enemy.x, enemy.y, enemy.radius, 0, Math.PI * 2);
+                ctx.fillStyle = enemy.color;
+                ctx.fill();
+                
+                // Barra de vida
+                const healthPercentage = enemy.health / enemy.maxHealth;
+                ctx.fillStyle = "#ff0000";
+                ctx.fillRect(enemy.x - enemy.radius, enemy.y - enemy.radius - 10, enemy.radius * 2 * healthPercentage, 3);
+            });
+        }
+
+        // Função para desenhar orbs de XP
+        function drawXPOrbs() {
+            xpOrbs.forEach(orb => {
+                ctx.beginPath();
+                ctx.arc(orb.x, orb.y, orb.radius, 0, Math.PI * 2);
+                ctx.fillStyle = "#6bc5ff";
+                ctx.fill();
+                
+                // Efeito de brilho
+                ctx.beginPath();
+                ctx.arc(orb.x, orb.y, orb.radius + 3, 0, Math.PI * 2);
+                ctx.strokeStyle = "rgba(107, 197, 255, 0.5)";
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            });
+        }
+
+        // Função para desenhar moedas
+        function drawCoinOrbs() {
+            coinOrbs.forEach(coin => {
+                ctx.beginPath();
+                ctx.arc(coin.x, coin.y, coin.radius, 0, Math.PI * 2);
+                ctx.fillStyle = "#ffcc00";
+                ctx.fill();
+                
+                // Efeito de brilho
+                ctx.beginPath();
+                ctx.arc(coin.x, coin.y, coin.radius + 3, 0, Math.PI * 2);
+                ctx.strokeStyle = "rgba(255, 204, 0, 0.5)";
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            });
+        }
+
+        // Função para desenhar projéteis
+        function drawProjectiles() {
+            player.weapons.forEach(weapon => {
+                weapon.projectiles?.forEach(projectile => {
+                    ctx.beginPath();
+                    ctx.arc(projectile.x, projectile.y, 5, 0, Math.PI * 2);
+                    ctx.fillStyle = weapon.color;
+                    ctx.fill();
+                    
+                    // Rastro do projétil
+                    ctx.beginPath();
+                    ctx.arc(projectile.x, projectile.y, 8, 0, Math.PI * 2);
+                    ctx.strokeStyle = weapon.color + "80";
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                });
+            });
+        }
+
+        // Função para desenhar partículas
+        function drawParticles() {
+            particles.forEach(particle => {
+                ctx.beginPath();
+                ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
+                ctx.fillStyle = particle.color;
+                ctx.fill();
+            });
+        }
+
+        // Função para mover o jogador
+        function movePlayer() {
+            let dx = 0;
+            let dy = 0;
+            
+            if (keys['ArrowUp'] || keys['w'] || keys['W']) dy = -1;
+            if (keys['ArrowDown'] || keys['s'] || keys['S']) dy = 1;
+            if (keys['ArrowLeft'] || keys['a'] || keys['A']) dx = -1;
+            if (keys['ArrowRight'] || keys['d'] || keys['D']) dx = 1;
+            
+            // Normaliza movimento diagonal
+            if (dx !== 0 && dy !== 0) {
+                dx *= 0.707;
+                dy *= 0.707;
+            }
+            
+            player.x += dx * player.speed;
+            player.y += dy * player.speed;
+            
+            // Mantém o jogador dentro dos limites
+            player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, player.x));
+            player.y = Math.max(player.radius, Math.min(canvas.height - player.radius, player.y));
+        }
+
+        // Função para mover inimigos
+        function moveEnemies() {
+            enemies.forEach(enemy => {
+                // Move em direção ao jogador
+                const dx = player.x - enemy.x;
+                const dy = player.y - enemy.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance > 0) {
+                    enemy.x += (dx / distance) * enemy.speed;
+                    enemy.y += (dy / distance) * enemy.speed;
+                }
+                
+                // Verifica colisão com o jogador
+                if (distance < player.radius + enemy.radius) {
+                    player.health -= 1;
+                    createParticles(enemy.x, enemy.y, 5, enemy.color);
+                    
+                    // Empurra o inimigo para trás
+                    enemy.x -= (dx / distance) * 10;
+                    enemy.y -= (dy / distance) * 10;
+                }
+            });
+        }
+
+        // Função para mover projéteis
+        function moveProjectiles() {
+            player.weapons.forEach(weapon => {
+                if (!weapon.projectiles) return;
+                
+                weapon.projectiles.forEach((projectile, index) => {
+                    // Move o projétil
+                    projectile.x += projectile.dx * weapon.speed;
+                    projectile.y += projectile.dy * weapon.speed;
+                    
+                    // Verifica se saiu da tela
+                    if (projectile.x < 0 || projectile.x > canvas.width || 
+                        projectile.y < 0 || projectile.y > canvas.height) {
+                        weapon.projectiles.splice(index, 1);
+                        return;
+                    }
+                    
+                    // Verifica colisão com inimigos
+                    enemies.forEach((enemy, enemyIndex) => {
+                        const dx = projectile.x - enemy.x;
+                        const dy = projectile.y - enemy.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (distance < 5 + enemy.radius) {
+                            // Aplica dano
+                            const damage = weapon.damage + (weapon.damage * permanentUpgrades.damage / 100);
+                            enemy.health -= damage;
+                            
+                            // Cria partículas
+                            createParticles(enemy.x, enemy.y, 8, weapon.color);
+                            
+                            // Remove o projétil
+                            weapon.projectiles.splice(index, 1);
+                            
+                            // Verifica se o inimigo morreu
+                            if (enemy.health <= 0) {
+                                // Cria orbs de XP e moedas
+                                createXPOrb(enemy.x, enemy.y, enemy.xp);
+                                if (Math.random() < 0.3) {
+                                    createCoinOrb(enemy.x, enemy.y);
+                                }
+                                
+                                // Remove o inimigo
+                                enemies.splice(enemyIndex, 1);
+                            }
+                        }
+                    });
+                });
+            });
+        }
+
+        // Função para mover partículas
+        function moveParticles() {
+            particles.forEach((particle, index) => {
+                particle.x += particle.dx;
+                particle.y += particle.dy;
+                particle.life--;
+                
+                if (particle.life <= 0) {
+                    particles.splice(index, 1);
+                }
+            });
+        }
+
+        // Função para criar partículas
+        function createParticles(x, y, count, color) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    dx: (Math.random() - 0.5) * 4,
+                    dy: (Math.random() - 0.5) * 4,
+                    radius: Math.random() * 3 + 1,
+                    color: color,
+                    life: Math.random() * 30 + 10
+                });
+            }
+        }
+
+        // Função para criar orbs de XP
+        function createXPOrb(x, y, xpValue) {
+            xpOrbs.push({
+                x: x,
+                y: y,
+                radius: 6,
+                xp: xpValue
+            });
+        }
+
+        // Função para criar moedas
+        function createCoinOrb(x, y) {
+            coinOrbs.push({
+                x: x,
+                y: y,
+                radius: 8
+            });
+        }
+
+        // Função para coletar orbs de XP
+        function collectXPOrbs() {
+            xpOrbs.forEach((orb, index) => {
+                const dx = player.x - orb.x;
+                const dy = player.y - orb.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < player.radius + orb.radius) {
+                    player.xp += orb.xp;
+                    createParticles(orb.x, orb.y, 3, "#6bc5ff");
+                    xpOrbs.splice(index, 1);
+                    
+                    // Verifica se subiu de nível
+                    if (player.xp >= player.xpToNextLevel) {
+                        levelUp();
+                    }
+                }
+            });
+        }
+
+        // Função para coletar moedas
+        function collectCoins() {
+            coinOrbs.forEach((coin, index) => {
+                const dx = player.x - coin.x;
+                const dy = player.y - coin.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < player.radius + coin.radius) {
+                    player.coins++;
+                    createParticles(coin.x, coin.y, 5, "#ffcc00");
+                    coinOrbs.splice(index, 1);
+                }
+            });
+        }
+
+        // Função para subir de nível
+        function levelUp() {
+            player.level++;
+            player.xp -= player.xpToNextLevel;
+            player.xpToNextLevel = Math.floor(player.xpToNextLevel * 1.2);
+            
+            // Pausa o jogo e mostra a tela de upgrade
+            gameRunning = false;
+            levelUpScreen.style.display = 'block';
+            
+            updateUI();
+        }
+
+        // Função para atirar com as armas
+        function fireWeapons() {
+            const now = Date.now();
+            
+            player.weapons.forEach(weapon => {
+                if (now - weapon.lastFired > weaponFireRate / weapon.speed) {
+                    weapon.lastFired = now;
+                    
+                    if (!weapon.projectiles) weapon.projectiles = [];
+                    
+                    // Diferentes padrões de tiro baseados no tipo de arma
+                    if (weapon.name === "Lâminas Voadoras") {
+                        // Dispara em 8 direções
+                        for (let i = 0; i < 8; i++) {
+                            const angle = (i / 8) * Math.PI * 2;
+                            weapon.projectiles.push({
+                                x: player.x,
+                                y: player.y,
+                                dx: Math.cos(angle),
+                                dy: Math.sin(angle)
+                            });
+                        }
+                    } else if (weapon.name === "Orbe da Morte") {
+                        // Orbe que persegue o inimigo mais próximo
+                        let targetEnemy = null;
+                        let minDistance = Infinity;
+                        
+                        enemies.forEach(enemy => {
+                            const dx = enemy.x - player.x;
+                            const dy = enemy.y - player.y;
+                            const distance = Math.sqrt(dx * dx + dy * dy);
+                            
+                            if (distance < minDistance) {
+                                minDistance = distance;
+                                targetEnemy = enemy;
+                            }
+                        });
+                        
+                        if (targetEnemy) {
+                            const dx = targetEnemy.x - player.x;
+                            const dy = targetEnemy.y - player.y;
+                            const distance = Math.sqrt(dx * dx + dy * dy);
+                            
+                            weapon.projectiles.push({
+                                x: player.x,
+                                y: player.y,
+                                dx: dx / distance,
+                                dy: dy / distance,
+                                target: targetEnemy
+                            });
+                        }
+                    } else {
+                        // Dispara na direção do inimigo mais próximo
+                        let targetEnemy = null;
+                        let minDistance = Infinity;
+                        
+                        enemies.forEach(enemy => {
+                            const dx = enemy.x - player.x;
+                            const dy = enemy.y - player.y;
+                            const distance = Math.sqrt(dx * dx + dy * dy);
+                            
+                            if (distance < minDistance) {
+                                minDistance = distance;
+                                targetEnemy = enemy;
+                            }
+                        });
+                        
+                        if (targetEnemy) {
+                            const dx = targetEnemy.x - player.x;
+                            const dy = targetEnemy.y - player.y;
+                            const distance = Math.sqrt(dx * dx + dy * dy);
+                            
+                            weapon.projectiles.push({
+                                x: player.x,
+                                y: player.y,
+                                dx: dx / distance,
+                                dy: dy / distance
+                            });
+                        } else {
+                            // Se não há inimigos, dispara em uma direção aleatória
+                            const angle = Math.random() * Math.PI * 2;
+                            weapon.projectiles.push({
+                                x: player.x,
+                                y: player.y,
+                                dx: Math.cos(angle),
+                                dy: Math.sin(angle)
+                            });
+                        }
+                    }
+                }
+            });
+        }
+
+        // Função para spawnar inimigos
+        function spawnEnemies() {
+            const now = Date.now();
+            if (now - lastEnemySpawn > enemySpawnRate) {
+                lastEnemySpawn = now;
+                
+                // Aumenta a dificuldade com o tempo
+                enemySpawnRate = Math.max(200, 1000 - (gameTime / 10));
+                
+                // Escolhe um tipo de inimigo baseado no tempo de jogo
+                let enemyTypeIndex = 0;
+                if (gameTime > 60) enemyTypeIndex = 4; // Boss após 1 minuto
+                else if (gameTime > 45) enemyTypeIndex = 3;
+                else if (gameTime > 30) enemyTypeIndex = 2;
+                else if (gameTime > 15) enemyTypeIndex = 1;
+                
+                const enemyType = enemyTypes[enemyTypeIndex];
+                
+                // Spawna em uma posição aleatória fora da tela
+                let x, y;
+                if (Math.random() < 0.5) {
+                    x = Math.random() < 0.5 ? -enemyType.radius : canvas.width + enemyType.radius;
+                    y = Math.random() * canvas.height;
+                } else {
+                    x = Math.random() * canvas.width;
+                    y = Math.random() < 0.5 ? -enemyType.radius : canvas.height + enemyType.radius;
+                }
+                
+                enemies.push({
+                    ...enemyType,
+                    x: x,
+                    y: y,
+                    maxHealth: enemyType.health
+                });
+            }
+        }
+
+        // Função para atualizar a UI
+        function updateUI() {
+            levelDisplay.textContent = player.level;
+            healthDisplay.textContent = Math.max(0, Math.floor(player.health));
+            maxHealthDisplay.textContent = Math.floor(player.maxHealth);
+            xpDisplay.textContent = Math.floor(player.xp);
+            xpToNextLevelDisplay.textContent = Math.floor(player.xpToNextLevel);
+            timeDisplay.textContent = Math.floor(gameTime);
+            coinsDisplay.textContent = player.coins;
+            permDamageDisplay.textContent = permanentUpgrades.damage;
+            permSpeedDisplay.textContent = permanentUpgrades.speed;
+            permHealthDisplay.textContent = permanentUpgrades.health;
+        }
+
+        // Função para mostrar tela de game over
+        function gameOver() {
+            gameRunning = false;
+            survivedTimeDisplay.textContent = Math.floor(gameTime);
+            finalLevelDisplay.textContent = player.level;
+            finalCoinsDisplay.textContent = player.coins;
+            gameOverScreen.style.display = 'block';
+        }
+
+        // Função principal do jogo
+        function gameLoop() {
+            if (!gameRunning) return;
+            
+            // Limpa o canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Atualiza o tempo
+            gameTime += 1/60;
+            
+            // Move e desenha todos os elementos
+            movePlayer();
+            moveEnemies();
+            moveProjectiles();
+            moveParticles();
+            collectXPOrbs();
+            collectCoins();
+            fireWeapons();
+            spawnEnemies();
+            
+            drawPlayer();
+            drawEnemies();
+            drawXPOrbs();
+            drawCoinOrbs();
+            drawProjectiles();
+            drawParticles();
+            
+            // Atualiza a UI
+            updateUI();
+            
+            // Verifica se o jogador morreu
+            if (player.health <= 0) {
+                gameOver();
+                return;
+            }
+            
+            // Continua o loop
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Event Listeners
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+
+        // Eventos para os botões de upgrade
+        document.querySelectorAll('.upgrade-option').forEach(option => {
+            option.addEventListener('click', () => {
+                const type = option.getAttribute('data-type');
+                
+                if (type === 'weapon') {
+                    // Escolhe uma arma aleatória que o jogador ainda não tem
+                    const availableWeapons = weapons.filter(weapon => 
+                        !player.weapons.some(w => w.name === weapon.name)
+                    );
+                    
+                    if (availableWeapons.length > 0) {
+                        const randomWeapon = availableWeapons[Math.floor(Math.random() * availableWeapons.length)];
+                        player.weapons.push({
+                            ...randomWeapon,
+                            lastFired: 0,
+                            level: 1
+                        });
+                    } else {
+                        // Se já tem todas as armas, melhora uma aleatória
+                        const randomWeapon = player.weapons[Math.floor(Math.random() * player.weapons.length)];
+                        randomWeapon.level++;
+                        randomWeapon.damage = Math.floor(randomWeapon.damage * 1.2);
+                    }
+                } else if (type === 'stat') {
+                    // Melhoria de status aleatória
+                    const stats = ['damage', 'speed', 'health'];
+                    const randomStat = stats[Math.floor(Math.random() * stats.length)];
+                    
+                    if (randomStat === 'damage') {
+                        player.weapons.forEach(weapon => {
+                            weapon.damage = Math.floor(weapon.damage * 1.15);
+                        });
+                    } else if (randomStat === 'speed') {
+                        player.speed *= 1.1;
+                    } else if (randomStat === 'health') {
+                        player.maxHealth = Math.floor(player.maxHealth * 1.2);
+                        player.health = player.maxHealth;
+                    }
+                } else if (type === 'special') {
+                    // Habilidade especial que quebra o jogo
+                    const specials = [
+                        { name: "Dano Duplo", effect: () => player.weapons.forEach(w => w.damage *= 2) },
+                        { name: "Velocidade Máxima", effect: () => player.speed *= 1.5 },
+                        { name: "Cura Completa", effect: () => player.health = player.maxHealth },
+                        { name: "XP Extra", effect: () => player.xp += player.xpToNextLevel * 0.5 },
+                        { name: "Invencibilidade", effect: () => {
+                            player.health = player.maxHealth;
+                            // Efeito temporário de invencibilidade
+                            setTimeout(() => {}, 5000);
+                        }},
+                        { name: "Moedas Duplas", effect: () => player.coins += 10 }
+                    ];
+                    
+                    const randomSpecial = specials[Math.floor(Math.random() * specials.length)];
+                    randomSpecial.effect();
+                }
+                
+                levelUpScreen.style.display = 'none';
+                gameRunning = true;
+                gameLoop();
+            });
+        });
+
+        // Botão de iniciar jogo
+        startButton.addEventListener('click', () => {
+            startScreen.style.display = 'none';
+            initGame();
+        });
+
+        // Botão de reiniciar jogo
+        restartButton.addEventListener('click', () => {
+            gameOverScreen.style.display = 'none';
+            initGame();
+        });
+
+        // Carrega upgrades permanentes do localStorage
+        function loadPermanentUpgrades() {
+            const saved = localStorage.getItem('permanentUpgrades');
+            if (saved) {
+                permanentUpgrades = JSON.parse(saved);
+            }
+        }
+
+        // Salva upgrades permanentes no localStorage
+        function savePermanentUpgrades() {
+            localStorage.setItem('permanentUpgrades', JSON.stringify(permanentUpgrades));
+        }
+
+        // Inicializa o jogo
+        loadPermanentUpgrades();
+        updateUI();
+    </script>
+</body>
+</html>

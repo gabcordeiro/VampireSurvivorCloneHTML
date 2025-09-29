@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Vampire Survivor Simplificado</title>
+<style>
+    body { margin: 0; overflow: hidden; background: #111; font-family: sans-serif; color: white; }
+    canvas { display: block; background: #222; }
+    #ui { position: absolute; top: 10px; left: 10px; width: 300px; }
+    .slider-container { margin: 5px 0; }
+    .slider-label { font-size: 14px; }
+    #upgradeMenu {
+        position: absolute; top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        background: #333; padding: 20px; border-radius: 10px;
+        display: none; flex-direction: column;
+    }
+    .upgradeBtn { margin: 5px; padding: 10px; background: #555; border: none; color: white; cursor: pointer; }
+</style>
+</head>
+<body>
+<div id="ui">
+    <div class="slider-container">
+        <div class="slider-label">Vida:</div>
+        <input type="range" id="hpSlider" min="0" max="100" value="100" disabled>
+    </div>
+    <div class="slider-container">
+        <div class="slider-label">XP:</div>
+        <input type="range" id="xpSlider" min="0" max="100" value="0" disabled>
+    </div>
+</div>
+<div id="upgradeMenu"></div>
+<canvas id="gameCanvas" width="800" height="600"></canvas>
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// --- PLAYER ---
+const player = {
+    x: 400,
+    y: 300,
+    size: 20,
+    speed: 3,
+    hp: 100,
+    maxHp: 100,
+    dmg: 5,
+    weapon: {dmg: 5, range: 150}, // arma inicial simples
+    xp: 0,
+    level: 1
+};
+
+// --- ENEMIGOS ---
+let enemies = [];
+const enemyTypes = [
+    {name:'Zumbi', hp:20, speed:1.5, color:'red'},
+    {name:'Esqueleto', hp:15, speed:2, color:'white'},
+    {name:'Bruxa', hp:30, speed:1, color:'purple'}
+];
+
+// --- XP DROPS ---
+let xpDrops = [];
+
+// --- BULLETS ---
+let bullets = [];
+
+// --- INPUT ---
+const keys = {};
+document.addEventListener('keydown', e => keys[e.key] = true);
+document.addEventListener('keyup', e => keys[e.key] = false);
+
+// --- SLIDERS ---
+const hpSlider = document.getElementById('hpSlider');
+const xpSlider = document.getElementById('xpSlider');
+
+// --- UPGRADES ---
+const upgradeMenu = document.getElementById('upgradeMenu');
+const possibleUpgrades = [
+    {name:'+Dano', apply:()=>player.dmg+=2},
+    {name:'+Velocidade', apply:()=>player.speed+=0.5},
+    {name:'+HP Máximo', apply:()=>{player.maxHp+=20; player.hp+=20;}}
+];
+
+// --- FUNÇÕES ---
+function spawnEnemy(){
+    const side = Math.floor(Math.random()*4);
+    let x=0,y=0;
+    const buffer = 50; // spawn fora da tela
+    if(side===0){ x = -buffer; y = Math.random()*canvas.height; }
+    if(side===1){ x = canvas.width+buffer; y = Math.random()*canvas.height; }
+    if(side===2){ y = -buffer; x = Math.random()*canvas.width; }
+    if(side===3){ y = canvas.height+buffer; x = Math.random()*canvas.width; }
+
+    const type = enemyTypes[Math.floor(Math.random()*enemyTypes.length)];
+    enemies.push({x,y, ...type, hp:type.hp, maxHp:type.hp});
+}
+
+function spawnXPDrops(x,y){
+    xpDrops.push({x,y,value:20,size:8});
+}
+
+// --- PLAYER MOVEMENT ---
+function movePlayer(){
+    if(keys['w']||keys['ArrowUp']) player.y -= player.speed;
+    if(keys['s']||keys['ArrowDown']) player.y += player.speed;
+    if(keys['a']||keys['ArrowLeft']) player.x -= player.speed;
+    if(keys['d']||keys['ArrowRight']) player.x += player.speed;
+    // limites da tela
+    player.x = Math.max(0, Math.min(canvas.width, player.x));
+    player.y = Math.max(0, Math.min(canvas.height, player.y));
+}
+
+// --- AUTO ATTACK ---
+function playerAttack(){
+    enemies.forEach(e=>{
+        const dx = e.x - player.x;
+        const dy = e.y - player.y;
+        const dist = Math.sqrt(dx*dx+dy*dy);
+        if(dist <= player.weapon.range){
+            e.hp -= player.dmg * 0.02; // dano contínuo
+        }
+    });
+}
+
+// --- UPDATE ENEMIES ---
+function updateEnemies(){
+    enemies.forEach(e=>{
+        const dx = player.x - e.x;
+        const dy = player.y - e.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if(dist>0){
+            e.x += (dx/dist)*e.speed;
+            e.y += (dy/dist)*e.speed;
+        }
+    });
+}
+
+// --- HANDLE XP DROPS ---
+function collectXP(){
+    xpDrops.forEach((xp,i)=>{
+        const dx = xp.x - player.x;
+        const dy = xp.y - player.y;
+        if(Math.sqrt(dx*dx+dy*dy)<player.size){
+            player.xp += xp.value;
+            xpDrops.splice(i,1);
+            if(player.xp >= player.level*100) levelUp();
+        }
+    });
+}
+
+// --- LEVEL UP ---
+function levelUp(){
+    player.level++;
+    player.xp = 0;
+    showUpgradeMenu();
+}
+
+function showUpgradeMenu(){
+    upgradeMenu.innerHTML='';
+    for(let i=0;i<3;i++){
+        const up = possibleUpgrades[Math.floor(Math.random()*possibleUpgrades.length)];
+        const btn = document.createElement('button');
+        btn.innerText = up.name;
+        btn.className = 'upgradeBtn';
+        btn.onclick=()=>{
+            up.apply();
+            upgradeMenu.style.display='none';
+        }
+        upgradeMenu.appendChild(btn);
+    }
+    upgradeMenu.style.display='flex';
+}
+
+// --- UPDATE UI ---
+function updateUI(){
+    hpSlider.max = player.maxHp;
+    hpSlider.value = player.hp;
+    xpSlider.max = player.level*100;
+    xpSlider.value = player.xp;
+}
+
+// --- MAIN UPDATE ---
+function update(){
+    movePlayer();
+    playerAttack();
+    updateEnemies();
+    collectXP();
+
+    // spawn inimigos randomicamente
+    if(Math.random()<0.02) spawnEnemy();
+
+    // matar inimigos e gerar XP
+    enemies.forEach((e,i)=>{
+        if(e.hp <=0){
+            spawnXPDrops(e.x,e.y);
+            enemies.splice(i,1);
+        }
+    });
+
+    updateUI();
+}
+
+// --- RENDER ---
+function render(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // player
+    ctx.fillStyle = 'blue';
+    ctx.beginPath();
+    ctx.arc(player.x,player.y,player.size,0,Math.PI*2);
+    ctx.fill();
+
+    // inimigos
+    enemies.forEach(e=>{
+        ctx.fillStyle = e.color;
+        ctx.beginPath();
+        ctx.arc(e.x,e.y,e.size,0,Math.PI*2);
+        ctx.fill();
+        // HP slider acima da cabeça
+        ctx.fillStyle='red';
+        ctx.fillRect(e.x-e.size,e.y-e.size-10,e.size*2*(e.hp/e.maxHp),4);
+    });
+
+    // XP drops
+    xpDrops.forEach(xp=>{
+        ctx.fillStyle='yellow';
+        ctx.beginPath();
+        ctx.arc(xp.x,xp.y,xp.size,0,Math.PI*2);
+        ctx.fill();
+    });
+}
+
+// --- GAME LOOP ---
+function gameLoop(){
+    update();
+    render();
+    requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+</script>
+</body>
+</html>
